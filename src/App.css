@@ -1,0 +1,78 @@
+.App {
+  text-align: center;
+  background-color :pink;
+  border:solid;
+}
+
+#root {
+flex-grow:1;
+display:flex;
+
+
+
+background-repeat: no-repeat;
+background-size: cover;
+height: 100vh;
+background-position: center;
+margin-left: 10%;
+margin-right: 10%;
+}
+
+
+
+.css-vhc7ah {
+max-width: initial !important;
+
+}
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+chakra-container css-vhc7ah {
+
+  border:solid;}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+  border:solid;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hover-button .hover-button--on,
+.hover-button:hover .hover-button--off {
+  display: none;
+  
+}
+
+.hover-button:hover .hover-button--on {
+  display: inline;
+  background-color: red;
+}
