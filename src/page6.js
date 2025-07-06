@@ -1,7 +1,7 @@
 // page6.js
 import React, { useState, useEffect } from 'react';
 import axios from "axios";
-import { ChakraProvider, Box, Card, CardHeader, CardBody, Heading, Text, Stack, StackDivider, Button, Spinner, Center } from '@chakra-ui/react';
+import { ChakraProvider, Box, Card, CardHeader, CardBody, Heading, Text, Stack, StackDivider, Button, Spinner, Center, Input } from '@chakra-ui/react';
 import { useLocation, Link as RouterLink } from "react-router-dom";
 import ReactMarkdown from 'react-markdown'; // Import ReactMarkdown for rendering markdown
 

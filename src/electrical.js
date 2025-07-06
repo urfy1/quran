@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from "axios"; // Not strictly needed here if `people` is static
-import { ChakraProvider, Select, FormControl, FormLabel } from '@chakra-ui/react'; // Added FormControl, FormLabel
+import { ChakraProvider, Select, FormControl, FormLabel, Input } from '@chakra-ui/react'; // Added FormControl, FormLabel
 
 import people from './data'; // Assuming data.js exports an array of reciter names
 
