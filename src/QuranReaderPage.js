@@ -23,14 +23,18 @@ const API_BASE_URL = 'https://api.alquran.cloud/v1';
 const API_TAFSIR_BASE_URL = 'https://quranapi.pages.dev/api/tafsir';
 
 const translationNames = {
-  'en.asad': "Muhammad Asad",
   'en.pickthall': "Pickthall",
   'en.yusufali': "Yusuf Ali",
   'en.sahih': "Sahih International",
   'en.transliteration': "Transliteration",
   'ur.maududi': "Maududi (Urdu)",
   'fr.hamidullah': "Hamidullah (French)",
-  'es.bornez': "Bornez (Spanish)",
+  'bn.bengali': "Muhiuddin Khan (Bengali)",
+  'zh.jian': "Ma Jian (Chinese)",
+  'de.aburida': "Abu Rida (German)",
+  'hi.hindi': "Suhel Farooq Khan and Saifur Rahman Nadwi (Hindi)",
+  'it.piccardo': "Hamza Roberto Piccardo (Italian)",
+  'so.abduh': "Mahmud Muhammad Abduh (Somalian)"
 };
 
 const tafsirNames = {
