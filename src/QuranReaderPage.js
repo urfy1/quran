@@ -185,7 +185,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
 
   // Settings state
   const [currentLanguages, setCurrentLanguages] = useState(
-    JSON.parse(localStorage.getItem('Qlangs')) || ['en.asad']
+    JSON.parse(localStorage.getItem('Qlangs')) || ['en.pickthall']
   );
   const [currentReciter, setCurrentReciter] = useState(
     JSON.parse(localStorage.getItem('RecitorSet')) || 'ar.alafasy'
