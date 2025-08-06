@@ -582,7 +582,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
           };
         });
 
-        setSurahNumber(surahNum);
+        setSurahNumber(parseInt(surahNum)); // FIX APPLIED HERE
         setSelectedSurahData(ayahsWithTranslations);
         setSelectedAyahs([]);
         stopAudio();
