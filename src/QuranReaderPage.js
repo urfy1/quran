@@ -185,7 +185,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
 
   // Settings state
   const [currentLanguages, setCurrentLanguages] = useState(
-    JSON.parse(localStorage.getItem('Qlangs')) || ['en.pickthall']
+    JSON.parse(localStorage.getItem('Qlangs')) || ['en.sahih']
   );
   const [currentReciter, setCurrentReciter] = useState(
     JSON.parse(localStorage.getItem('RecitorSet')) || 'ar.alafasy'
@@ -690,6 +690,14 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
     localStorage.setItem('Qlangs', JSON.stringify(currentLanguages));
   }, [currentLanguages]);
 
+  // This useEffect re-fetches the surah data whenever display-related settings change
+useEffect(() => {
+    // Only re-fetch if a surah is already selected
+    if (surahNumber) {
+      handleSurahChange(String(surahNumber));
+    }
+  }, [currentLanguages, selectedTafsirs, arabicScript, surahNumber, handleSurahChange]);
+  
   const handleSaveSelection = useCallback(() => {
     if (!surahInfo || selectedAyahs.length === 0) {
       toast({
