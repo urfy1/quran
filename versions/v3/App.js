@@ -9,21 +9,16 @@ import {
 } from '@chakra-ui/react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Corrected import paths to match actual file names with correct casing
-import QuranReaderPage from './QuranReaderPage'; // Corrected file name casing
-import TranslationsPage from './TranslationsPage'; // Corrected file name casing
-import TafsirsPage from './TafsirsPage';     // Corrected file name casing
+import Page4 from './page4';
+import Page5 from './page5';
+import Page6 from './page6';
 import Electrical from './electrical';
 
-// Extend the Chakra UI theme to include color mode configuration and custom font
+// Extend the Chakra UI theme to include color mode configuration
 const customTheme = extendTheme({
   config: {
     initialColorMode: 'light',
     useSystemColorMode: false,
-  },
-  fonts: {
-    heading: 'Inter, sans-serif', // Apply Inter to headings
-    body: 'Inter, sans-serif',    // Apply Inter to body text
   },
   colors: {
     light: {
@@ -87,11 +82,6 @@ const customTheme = extendTheme({
             _focus: {
               borderColor: 'brand.500',
             },
-            _dark: {
-              bg: props.theme.colors.dark.inputBg,
-              borderColor: props.theme.colors.dark.inputBorder,
-              color: props.theme.colors.dark.optionColor,
-            },
           },
         }),
       },
@@ -110,17 +100,14 @@ const MainAppContent = () => {
 
   return (
     <Box bg={bgColor} color={textColor} minH="100vh">
-      {/* Google Fonts import for Inter */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
       <Container maxW="container.lg" py={2} px={4}>
         <BrowserRouter>
           <Routes>
-            {/* Updated routes with descriptive names */}
-            <Route path="/" element={<QuranReaderPage colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
-            <Route path="/quran-reader" element={<QuranReaderPage colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
-            <Route path="/translations" element={<TranslationsPage />} />
-            <Route path="/tafsirs" element={<TafsirsPage />} />
-            <Route path="/electrical" element={<Electrical />} />
+            <Route path="/" element={<Page4 colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
+            <Route path="Page4" element={<Page4 colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
+            <Route path="Page5" element={<Page5 />} />
+            <Route path="Page6" element={<Page6 />} />
+            <Route path="electrical" element={<Electrical />} />
           </Routes>
         </BrowserRouter>
       </Container>
