@@ -8,5 +8,5 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18.18.0
-      - key: RENDER_BUILT_WITH_BUN
-        value: "false"
+      - key: DISABLE_BUN
+        value: "true"
