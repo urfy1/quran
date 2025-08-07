@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Quran App",
+  "name": "Read & Listen to the Holy Quran",
   "icons": [
     {
       "src": "favicon.ico",
