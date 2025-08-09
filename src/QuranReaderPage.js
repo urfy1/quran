@@ -15,9 +15,12 @@ import {
 } from '@chakra-ui/react';
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { Howl } from 'howler';
-import { FaPlay, FaPause, FaStop, FaLanguage, FaVolumeUp, FaTextHeight, FaHeart, FaRegHeart, FaRegClock, FaSun, FaMoon } from 'react-icons/fa';
+import { FaPlay, FaPause, FaStop, FaLanguage, FaVolumeUp, FaTextHeight, FaHeart, FaRegHeart, FaSun, FaMoon, FaShare, FaRegClock } from 'react-icons/fa';
 import { MdSettings, MdBookmark, MdBookmarkBorder, MdDelete, MdMenu } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
+import localforage from 'localforage'; // Import localforage for IndexedDB abstraction
+
+// ... (other constants and components remain unchanged)
 
 const API_BASE_URL = 'https://api.alquran.cloud/v1';
 const API_TAFSIR_BASE_URL = 'https://quranapi.pages.dev/api/tafsir';
@@ -53,10 +56,12 @@ const debounce = (func, delay) => {
   };
 };
 
-// Memoized Ayah Card Component
-const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelected, toggleAyahSelection, handleAyahClick, currentLanguages, translationNames, ayahRefs, highlightColor, arabicFontSize, translationFontSize, grayTextColor, arabicTextColor }) => { // Added arabicTextColor
-  const isCurrentPlaying = currentlyPlayingAyahIndex === index;
+// Memoized Ayah Card Component (updated with the audio cache indicator)
+const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelected, toggleAyahSelection, handleAyahClick, currentLanguages, translationNames, ayahRefs, highlightColor, arabicFontSize, translationFontSize, grayTextColor, arabicTextColor, cachedAyahAudio, isBulkMode }) => {
   const [showTafsir, setShowTafsir] = useState(false);
+  const isCurrentPlaying = currentlyPlayingAyahIndex === index;
+  // Safely check if ayah exists before accessing its properties
+  const isAudioCached = ayah && cachedAyahAudio.has(ayah.number); 
 
   // Use useColorModeValue for card background and text colors
   const cardBg = useColorModeValue('light.cardBg', 'dark.cardBg');
@@ -64,15 +69,19 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
   const selectedCardBg = useColorModeValue('blue.50', 'blue.800');
   const selectedCardHoverBg = useColorModeValue('blue.100', 'blue.700');
   const dividerColor = useColorModeValue('gray.200', 'gray.600');
-  const purpleBg = useColorModeValue('grey.400', 'grey.800'); // This was 'purple.50' before, changed to 'grey.400' for consistency with previous changes
+  const purpleBg = useColorModeValue('grey.400', 'grey.800');
   const purpleBorder = useColorModeValue('purple.100', 'purple.700');
-  // Adjusted purpleText for better dark mode visibility
   const purpleText = useColorModeValue('purple.800', 'purple.300');
-  const blueText = useColorModeValue('blue.700', 'blue.300'); // Added blueText for translation headings
+  const blueText = useColorModeValue('blue.700', 'blue.300');
+  const dotColor = useColorModeValue('green.500', 'green.300'); // Theme-aware color for the dot
 
 
   // Filter out any undefined Tafsirs, assuming ayah.tafsirs holds the array from quranapi.pages.dev
   const validTafsirs = ayah.tafsirs ? ayah.tafsirs.filter(tafsir => tafsir.author && tafsir.content) : [];
+
+  if (!ayah) {
+    return null; // Return nothing if ayah data is not available
+  }
 
   return (
     <Card
@@ -80,7 +89,7 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
       p={4}
       bg={isCurrentPlaying ? highlightColor : isSelected ? selectedCardBg : cardBg}
       cursor="pointer"
-      onClick={() => toggleAyahSelection(index)}
+      onClick={() => isBulkMode ? toggleAyahSelection(ayah) : null}
       ref={(el) => (ayahRefs.current[ayah.numberInSurah] = el)}
       _hover={{ bg: isCurrentPlaying ? highlightColor : isSelected ? selectedCardHoverBg : cardHoverBg }}
     >
@@ -89,16 +98,28 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
           <Badge colorScheme="purple" fontSize="md" px={2} py={1} borderRadius="md">
             Ayah {ayah.numberInSurah}
           </Badge>
-          <IconButton
-            size="sm"
-            icon={isCurrentPlaying ? <FaPause /> : <FaPlay />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAyahClick(index);
-            }}
-            aria-label={isCurrentPlaying ? "Pause Ayah" : "Play Ayah"}
-            colorScheme={isCurrentPlaying ? "red" : "green"}
-          />
+          <Flex align="center" gap={2}>
+            {isAudioCached && (
+              <Tooltip label="Audio is Cached">
+                <Box
+                  w="10px"
+                  h="10px"
+                  borderRadius="full"
+                  bg={dotColor}
+                />
+              </Tooltip>
+            )}
+            <IconButton
+              size="sm"
+              icon={isCurrentPlaying ? <FaPause /> : <FaPlay />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAyahClick(index);
+              }}
+              aria-label={isCurrentPlaying ? "Pause Ayah" : "Play Ayah"}
+              colorScheme={isCurrentPlaying ? "red" : "green"}
+            />
+          </Flex>
         </Flex>
         {/* Updated Arabic text styling for bigger, centered text */}
         <Text
@@ -146,12 +167,12 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
                   Tafsirs
                 </Heading>
                 {validTafsirs.map((tafsir, idx) => (
-                  <Box key={idx} mt={3} p={3} borderRadius="md" borderWidth="1px" borderColor={purpleBorder}> {/* Removed bg={purpleBg} */}
+                  <Box key={idx} mt={3} p={3} borderRadius="md" borderWidth="1px" borderColor={purpleBorder}>
                     <Text fontWeight="semibold" fontSize="md" color={purpleText} mb={1}>
                       <strong>{tafsir.author}:</strong>
                     </Text>
                     {tafsir.groupVerse && <Text fontSize="sm" color={grayTextColor} mb={2}>{tafsir.groupVerse}</Text>}
-                    <Text fontSize={`${translationFontSize}px`} color={grayTextColor}> {/* Ensured Tafsir content uses grayTextColor */}
+                    <Text fontSize={`${translationFontSize}px`} color={grayTextColor}>
                       <ReactMarkdown>{tafsir.content}</ReactMarkdown>
                     </Text>
                   </Box>
@@ -173,55 +194,43 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const [surahInfo, setSurahInfo] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isFavoritesOpen, onOpen: onFavoritesOpen, onClose: onFavoritesClose } = useDisclosure();
-  const { isOpen: isMemorizationSetsOpen, onOpen: onMemorizationSetsOpen, onClose: onMemorizationSetsClose } = useDisclosure();
+  // UPDATED: Renamed state variable for 'memorisation'
+  const { isOpen: isMemorisationSetsOpen, onOpen: onMemorisationSetsOpen, onClose: onMemorisationSetsClose } = useDisclosure();
   const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
-  const [selectedTafsirs, setSelectedTafsirs] = useState(
-    JSON.parse(localStorage.getItem('Qtafsirs')) || ['Ibn Kathir']
-  );
+  
+  // Initialize state with default values, which will be overwritten by localforage in useEffect
+  const [selectedTafsirs, setSelectedTafsirs] = useState(['Ibn Kathir']);
+  const [currentLanguages, setCurrentLanguages] = useState(['en.sahih']);
+  const [currentReciter, setCurrentReciter] = useState('ar.alafasy');
+  const [arabicScript, setArabicScript] = useState('quran-indopak');
+  const [arabicFontSize, setArabicFontSize] = useState(32);
+  const [translationFontSize, setTranslationFontSize] = useState(16);
+  // UPDATED: Renamed state variable for 'memorisation'
+  const [favorites, setFavorites] = useState([]);
+  const [memorisationSets, setMemorisationSets] = useState([]);
+  
+  // UPDATED: State to store which surahs are cached
+  const [cachedSurahs, setCachedSurahs] = useState(new Set()); // Using a Set for efficient lookups
+  // NEW: State to store which ayah audios are cached
+  const [cachedAyahAudio, setCachedAyahAudio] = useState(new Set());
+  // NEW: state to hold link parameters
+  const [linkParams, setLinkParams] = useState(null);
+
 
   const btnRef = useRef();
   const toast = useToast();
   const navigate = useNavigate();
-
-  // Settings state
-  const [currentLanguages, setCurrentLanguages] = useState(
-    JSON.parse(localStorage.getItem('Qlangs')) || ['en.sahih']
-  );
-  const [currentReciter, setCurrentReciter] = useState(
-    JSON.parse(localStorage.getItem('RecitorSet')) || 'ar.alafasy'
-  );
-  const [arabicScript, setArabicScript] = useState(
-    JSON.parse(localStorage.getItem('arabicScript')) || 'quran-indopak'
-  );
-
-  // Font size states
-  const [arabicFontSize, setArabicFontSize] = useState(
-    JSON.parse(localStorage.getItem('arabicFontSize')) || 32
-  );
-  const [translationFontSize, setTranslationFontSize] = useState(
-    JSON.parse(localStorage.getItem('translationFontSize')) || 16
-  );
+  const location = useLocation();
 
   const [selectedAyahs, setSelectedAyahs] = useState([]);
   const [isBulkMode, setIsBulkMode] = useState(false);
-  const [favorites, setFavorites] = useState(
-    JSON.parse(localStorage.getItem('quranFavorites')) || []
-  );
-
-  // Ayah Range selection
   const [ayahRange, setAyahRange] = useState([1, 1]);
-
-  // Saved memorization sets
-  const [memorizationSets, setMemorizationSets] = useState(
-    JSON.parse(localStorage.getItem('quranMemorizationSets')) || []
-  );
 
   // Loading states
   const [isLoadingSurahs, setIsLoadingSurahs] = useState(true);
   const [isLoadingAyahs, setIsLoadingAyahs] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  const location = useLocation();
 
   // Audio player refs and state
   const currentSoundRef = useRef(null);
@@ -230,8 +239,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const [currentlyPlayingAyahIndex, setCurrentlyPlayingAyahIndex] = useState(null);
   const ayahRefs = useRef({});
 
-  // Define highlightColor using useColorModeValue for consistency (removed from settings)
-  const highlightColor = useColorModeValue('yellow.100', 'blue.700'); // Light mode: light yellow, Dark mode: blue.700
+  const highlightColor = useColorModeValue('yellow.100', 'blue.700');
 
   // Mapping for the Ayah Audio API reciter IDs
   const reciterAyahApiMap = {
@@ -255,55 +263,109 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const inputBorder = useColorModeValue('gray.200', 'dark.inputBorder');
   const optionBg = useColorModeValue('white', 'dark.optionBg');
   const optionColor = useColorModeValue('gray.800', 'dark.optionColor');
-
-  // New consistent grayTextColor
   const grayTextColor = useColorModeValue('gray.600', 'gray.400');
-  const arabicTextColor = useColorModeValue('quran.darkGreen', 'quran.gold'); // Defined here for consistency
-
-  // Colors for the Settings button specifically
+  const arabicTextColor = useColorModeValue('quran.darkGreen', 'quran.gold');
   const settingsButtonBg = useColorModeValue('brand.500', 'gray.600');
   const settingsButtonColor = useColorModeValue('white', 'gray.100');
   const settingsButtonHoverBg = useColorModeValue('brand.600', 'gray.700');
-
-  // Colors for the Mobile Menu button specifically
   const mobileMenuButtonBg = useColorModeValue('brand.500', 'gray.600');
   const mobileMenuButtonColor = useColorModeValue('white', 'gray.100');
   const mobileMenuButtonHoverBg = useColorModeValue('brand.600', 'gray.700');
+  
+  // NEW: Subtle cached color for the surah list indicator
+  const cachedSurahColor = useColorModeValue('gray.400', 'gray.500');
 
-
+  // New useEffect to handle async data loading with localforage
   useEffect(() => {
-    localStorage.setItem('quranFavorites', JSON.stringify(favorites));
+    const loadStateFromDb = async () => {
+      try {
+        const savedLangs = await localforage.getItem('Qlangs');
+        if (savedLangs) setCurrentLanguages(savedLangs);
+
+        const savedTafsirs = await localforage.getItem('Qtafsirs');
+        if (savedTafsirs) setSelectedTafsirs(savedTafsirs);
+
+        const savedReciter = await localforage.getItem('RecitorSet');
+        if (savedReciter) setCurrentReciter(savedReciter);
+
+        const savedScript = await localforage.getItem('arabicScript');
+        if (savedScript) setArabicScript(savedScript);
+
+        const savedArabicFontSize = await localforage.getItem('arabicFontSize');
+        if (savedArabicFontSize) setArabicFontSize(savedArabicFontSize);
+
+        const savedTranslationFontSize = await localforage.getItem('translationFontSize');
+        if (savedTranslationFontSize) setTranslationFontSize(savedTranslationFontSize);
+
+        const savedFavorites = await localforage.getItem('quranFavorites');
+        if (savedFavorites) setFavorites(savedFavorites);
+
+        // UPDATED: Changed storage key for 'memorisation'
+        const savedMemorisationSets = await localforage.getItem('quranMemorisationSets');
+        if (savedMemorisationSets) setMemorisationSets(savedMemorisationSets);
+
+        // NEW: Load cached audio state
+        const savedAudioCache = await localforage.getItem('cachedAyahAudio');
+        if (savedAudioCache) {
+          setCachedAyahAudio(new Set(savedAudioCache));
+        }
+
+      } catch (err) {
+        console.error('Error loading state from localforage:', err);
+      }
+    };
+    loadStateFromDb();
+  }, []);
+
+  // Updated useEffects to save to localforage
+  useEffect(() => {
+    localforage.setItem('quranFavorites', favorites);
   }, [favorites]);
 
   useEffect(() => {
-    localStorage.setItem('quranMemorizationSets', JSON.stringify(memorizationSets));
-  }, [memorizationSets]);
+    // UPDATED: Changed storage key for 'memorisation'
+    localforage.setItem('quranMemorisationSets', memorisationSets);
+  }, [memorisationSets]);
 
   useEffect(() => {
-    localStorage.setItem('Qtafsirs', JSON.stringify(selectedTafsirs));
+    localforage.setItem('Qtafsirs', selectedTafsirs);
   }, [selectedTafsirs]);
 
   useEffect(() => {
-    localStorage.setItem('arabicFontSize', JSON.stringify(arabicFontSize));
+    localforage.setItem('arabicFontSize', arabicFontSize);
   }, [arabicFontSize]);
 
   useEffect(() => {
-    localStorage.setItem('translationFontSize', JSON.stringify(translationFontSize));
+    localforage.setItem('translationFontSize', translationFontSize);
   }, [translationFontSize]);
 
   useEffect(() => {
-    localStorage.setItem('arabicScript', JSON.stringify(arabicScript));
+    localforage.setItem('arabicScript', arabicScript);
   }, [arabicScript]);
 
-  const toggleFavorite = useCallback(() => {
+  useEffect(() => {
+    localforage.setItem('Qlangs', currentLanguages);
+  }, [currentLanguages]);
+
+  useEffect(() => {
+    localforage.setItem('RecitorSet', currentReciter);
+  }, [currentReciter]);
+
+  // NEW: Save the cached ayah audio state whenever it changes
+  useEffect(() => {
+    localforage.setItem('cachedAyahAudio', Array.from(cachedAyahAudio));
+  }, [cachedAyahAudio]);
+  
+  const toggleFavorite = useCallback(async () => {
     if (!surahNumber) return;
 
     const surahIndex = favorites.findIndex(fav => fav.surahNumber === surahNumber);
+    let newFavorites;
 
     if (surahIndex >= 0) {
-      setFavorites(favorites.filter(fav => fav.surahNumber !== surahNumber));
+      newFavorites = favorites.filter(fav => fav.surahNumber !== surahNumber);
       toast({
-        title: "Removed from favorites",
+        title: "Removed from favourite surahs",
         status: "info",
         duration: 2000,
         isClosable: true,
@@ -311,21 +373,22 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
     } else {
       const surah = surahs.find(s => s.number === surahNumber);
       if (surah) {
-        setFavorites([...favorites, {
+        newFavorites = [...favorites, {
           surahNumber: surah.number,
           name: surah.name,
           englishName: surah.englishName,
           numberOfAyahs: surah.numberOfAyahs,
           timestamp: Date.now()
-        }]);
+        }];
         toast({
-          title: "Added to favorites",
+          title: "Added to favourite surahs",
           status: "success",
           duration: 2000,
           isClosable: true,
         });
       }
     }
+    setFavorites(newFavorites);
   }, [surahNumber, favorites, surahs, toast]);
 
   const isFavorited = useCallback(() => {
@@ -335,6 +398,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   useEffect(() => {
     return () => {
       if (currentSoundRef.current) {
+        currentSoundRef.current.stop();
         currentSoundRef.current.unload();
         currentSoundRef.current = null;
       }
@@ -397,7 +461,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
     }
   }, [selectedSurahData, surahNumber, currentReciter, getAyahAudioUrl]);
 
-  const handleAyahClick = useCallback((index, customPlaylistIndices = null) => {
+  const handleAyahClick = useCallback(async (index, customPlaylistIndices = null) => {
     if (!selectedSurahData) return;
 
     const ayah = selectedSurahData[index];
@@ -442,6 +506,12 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
       currentSoundRef.current = new Howl({
         src: [newSrc],
         html5: true,
+        // NEW: Add the onload callback to update the cached audio state
+        onload: () => {
+            console.log(`Audio for Ayah ${ayah.numberInSurah} loaded.`);
+            // Correctly update the state to reflect that this ayah's audio is now cached
+            setCachedAyahAudio(prev => new Set(prev).add(ayah.number));
+        },
         onend: () => handleAudioEnd(index, customPlaylistIndices),
         onplay: () => {
           const nextIndexForPreload = customPlaylistIndices
@@ -453,9 +523,17 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
           console.error(`Error playing audio for Ayah ${ayah.numberInSurah}:`, error);
           stopAudio();
         },
-        onloaderror: (id, error) => {
+        onloaderror: async (id, error) => {
           console.error(`Error loading audio for Ayah ${ayah.numberInSurah} (URL: ${newSrc}):`, error);
+
+          // Force a stop and a retry.
+          // This handles potential cache corruption by forcing a new network request
+          // after the current attempt fails.
           stopAudio();
+          setTimeout(() => {
+            console.log(`Retrying download for Ayah ${ayah.numberInSurah}...`);
+            handleAyahClick(index, customPlaylistIndices);
+          }, 1000);
         }
       });
 
@@ -468,7 +546,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
         ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [selectedSurahData, surahNumber, currentReciter, currentlyPlayingAyahIndex, isPlaying, stopAudio, getAyahAudioUrl, preloadNextAyah]);
+  }, [selectedSurahData, surahNumber, currentReciter, currentlyPlayingAyahIndex, isPlaying, stopAudio, getAyahAudioUrl, preloadNextAyah, setCachedAyahAudio]);
 
   const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) => {
     if (!selectedSurahData || currentIndex === null) return;
@@ -533,125 +611,140 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
     }
   }, [selectedSurahData, handleAyahClick, stopAudio, preloadNextAyah]);
 
+  // Main function for fetching Surah data, updated to use a cache-first approach
   const handleSurahChange = useCallback(async (surahNum, script = arabicScript) => {
     setErrorMessage(null);
     const selectedSurah = surahs.find((surah) => surah.number === parseInt(surahNum));
 
-    if (selectedSurah) {
-      setIsLoadingAyahs(true);
-
-      try {
-        const fetchPromises = currentLanguages.map(lang =>
-          axios.get(`${API_BASE_URL}/surah/${surahNum}/${lang}`)
-        );
-
-        // Use the 'script' parameter which defaults to the current arabicScript state
-        const arabicResponse = await axios.get(`${API_BASE_URL}/surah/${surahNum}/${script}`);
-        const arabicAyahs = arabicResponse.data.data.ayahs;
-        setSurahInfo(arabicResponse.data.data);
-        setAyahRange([1, arabicResponse.data.data.numberOfAyahs]);
-
-        const translationResponses = await Promise.all(fetchPromises);
-
-        const ayahTafsirPromises = arabicAyahs.map(async (ayah) => {
-          if (selectedTafsirs.length > 0) {
-            try {
-              const tafsirResponse = await axios.get(`${API_TAFSIR_BASE_URL}/${surahNum}_${ayah.numberInSurah}.json`);
-              return tafsirResponse.data.tafsirs.filter(tafsir =>
-                selectedTafsirs.includes(tafsir.author)
-              );
-            } catch (tafsirError) {
-              console.warn(`Could not fetch tafsir for ${surahNum}:${ayah.numberInSurah}:`, tafsirError);
-              return [];
-            }
-          }
-          return [];
-        });
-
-        const allAyahTafsirs = await Promise.all(ayahTafsirPromises);
-
-        const ayahsWithTranslations = arabicAyahs.map((ayah, idx) => {
-          const translations = translationResponses.map(res => {
-            const lang = res.config.url.split('/').pop();
-            return {
-              lang: lang,
-              text: res.data.data.ayahs[idx].text
-            };
-          });
-
-          return {
-            ...ayah,
-            translations: translations,
-            tafsirs: allAyahTafsirs[idx]
-          };
-        });
-
-        setSurahNumber(parseInt(surahNum)); // FIX APPLIED HERE
-        setSelectedSurahData(ayahsWithTranslations);
-        setSelectedAyahs([]);
-        stopAudio();
-      } catch (error) {
-        console.error('Error fetching Surah details or Tafsirs:', error);
-        setErrorMessage('Failed to load Surah details or Tafsirs. Please try again.');
+    if (!selectedSurah) {
         setSelectedSurahData(null);
-      } finally {
+        setSurahInfo(null);
+        // Only reset ayah range and selected ayahs if we are not loading from a link
+        setAyahRange([1, 1]);
+        setSelectedAyahs([]);
+        setIsBulkMode(false);
         setIsLoadingAyahs(false);
-      }
-    } else {
-      setSelectedSurahData(null);
-      setSurahInfo(null);
-      setAyahRange([1, 1]); // Keep this default for initial state
-    }
-  }, [currentLanguages, surahs, stopAudio, selectedTafsirs, arabicScript]);
-
-  const toggleAyahSelection = useCallback((index) => {
-    const ayahToSelect = selectedSurahData[index];
-    const isSelected = selectedAyahs.some(ayah => ayah.number === ayahToSelect.number);
-
-    if (isSelected) {
-      setSelectedAyahs(selectedAyahs.filter(ayah => ayah.number !== ayahToSelect.number));
-    } else {
-      setSelectedAyahs([...selectedAyahs, ayahToSelect]);
-    }
-  }, [selectedAyahs, selectedSurahData]);
-
-  const playSelectedAyahs = useCallback(() => {
-    if (selectedAyahs.length === 0) {
-      toast({
-        title: "No ayahs selected",
-        description: "Please select ayahs to play",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
+        return;
     }
 
-    const sortedSelectedAyahs = [...selectedAyahs].sort((a, b) => a.numberInSurah - b.numberInSurah);
+    setIsLoadingAyahs(true);
+    stopAudio();
 
-    const customPlaylistIndices = sortedSelectedAyahs.map(ayah =>
-      selectedSurahData.findIndex(dataAyah => dataAyah.number === ayah.number)
-    ).filter(index => index !== -1);
+    try {
+        const cacheKey = `surah-${surahNum}-script-${script}-langs-${currentLanguages.join(',')}-tafsirs-${selectedTafsirs.join(',')}`;
+        let cachedData = await localforage.getItem(cacheKey);
 
-    if (customPlaylistIndices.length === 0) {
-      toast({
-        title: "Error playing selected ayahs",
-        description: "No valid ayahs found to play.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
+        let ayahsToSet;
+        let infoToSet;
+
+        if (linkParams) {
+          console.log(`[SHARED LINK LOG] Detected shared link. Attempting to load memorisation set for Surah ${surahNum}.`);
+        }
+
+        if (cachedData) {
+            console.log(`[CACHE LOG] Found cached data for surah ${surahNum}. Using it.`);
+            ayahsToSet = cachedData.ayahs;
+            infoToSet = cachedData.info;
+        } else {
+            console.log(`[API FETCH LOG] No cached data for surah ${surahNum}. Fetching from API.`);
+            // Fetch data from API if not in cache
+            const fetchPromises = currentLanguages.map(lang =>
+                axios.get(`${API_BASE_URL}/surah/${surahNum}/${lang}`)
+            );
+            const arabicResponse = await axios.get(`${API_BASE_URL}/surah/${surahNum}/${script}`);
+            const arabicAyahs = arabicResponse.data.data.ayahs;
+            const surahInfoFromApi = arabicResponse.data.data;
+
+            const translationResponses = await Promise.all(fetchPromises);
+            
+            console.log(`[API FETCH LOG] Fetching tafsir data for ${arabicAyahs.length} ayahs.`);
+            const ayahTafsirPromises = arabicAyahs.map(async (ayah) => {
+                if (selectedTafsirs.length > 0) {
+                    const tafsirCacheKey = `tafsir-${surahNum}-${ayah.numberInSurah}`;
+                    let cachedTafsir = await localforage.getItem(tafsirCacheKey);
+
+                    if (cachedTafsir) {
+                        return cachedTafsir.filter(tafsir => selectedTafsirs.includes(tafsir.author));
+                    } else {
+                        try {
+                            const tafsirResponse = await axios.get(`${API_TAFSIR_BASE_URL}/${surahNum}_${ayah.numberInSurah}.json`);
+                            const fetchedTafsirs = tafsirResponse.data.tafsirs;
+                            await localforage.setItem(tafsirCacheKey, fetchedTafsirs);
+                            return fetchedTafsirs.filter(tafsir => selectedTafsirs.includes(tafsir.author));
+                        } catch (tafsirError) {
+                            console.warn(`Could not fetch tafsir for ${surahNum}:${ayah.numberInSurah}:`, tafsirError);
+                            return [];
+                        }
+                    }
+                }
+                return [];
+            });
+            
+            console.log('[API FETCH LOG] Waiting for all tafsir promises to resolve...');
+            const allAyahTafsirs = await Promise.all(ayahTafsirPromises);
+            console.log('[API FETCH LOG] All tafsir promises resolved. Merging data.');
+
+            ayahsToSet = arabicAyahs.map((ayah, idx) => {
+                const translations = translationResponses.map(res => {
+                    const lang = res.config.url.split('/').pop();
+                    return {
+                        lang: lang,
+                        text: res.data.data.ayahs[idx].text
+                    };
+                });
+                return {
+                    ...ayah,
+                    translations: translations,
+                    tafsirs: allAyahTafsirs[idx]
+                };
+            });
+            infoToSet = surahInfoFromApi;
+            
+            // Store the full surah data in cache
+            await localforage.setItem(cacheKey, {
+                ayahs: ayahsToSet,
+                info: infoToSet
+            });
+            // Update the cached surahs set after a successful download
+            setCachedSurahs(prev => new Set(prev).add(parseInt(surahNum)));
+            console.log(`[CACHE LOG] Successfully fetched and cached surah ${surahNum}.`);
+        }
+
+        // Set all state at once after data is ready
+        setSelectedSurahData(ayahsToSet);
+        setSurahInfo(infoToSet);
+
+        // This is a key change: only reset if not a link.
+        // The separate effect will handle the linkParams logic after this.
+        if (!linkParams) {
+          setAyahRange([1, infoToSet.numberOfAyahs]);
+          setSelectedAyahs([]);
+          setIsBulkMode(false);
+        }
+        
+    } catch (error) {
+        console.error('Error fetching or loading Surah details:', error);
+        setErrorMessage('Failed to load Surah details. Please try again.');
+        setSelectedSurahData(null);
+    } finally {
+        setIsLoadingAyahs(false);
+        console.log('[LOADING LOG] Finished loading process for Surah.');
     }
+  }, [currentLanguages, surahs, stopAudio, selectedTafsirs, arabicScript, linkParams]); // Added linkParams to dependencies
 
-    handleAyahClick(customPlaylistIndices[0], customPlaylistIndices);
-  }, [selectedAyahs, selectedSurahData, handleAyahClick, toast]);
-
+  // Updated fetchSurahs to use a cache-first approach
   useEffect(() => {
     const fetchSurahs = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/surah`);
-        setSurahs(response.data.data);
+        const cachedSurahs = await localforage.getItem('surahs');
+        if (cachedSurahs) {
+          setSurahs(cachedSurahs);
+        } else {
+          const response = await axios.get(`${API_BASE_URL}/surah`);
+          const surahList = response.data.data;
+          await localforage.setItem('surahs', surahList);
+          setSurahs(surahList);
+        }
       } catch (error) {
         console.error('Error fetching surahs:', error);
         setErrorMessage('Failed to load surah list. Please check your connection.');
@@ -659,46 +752,99 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
         setIsLoadingSurahs(false);
       }
     };
-
     fetchSurahs();
   }, []);
 
+  // MODIFIED: This useEffect now checks for the specific cache key to be more accurate
   useEffect(() => {
-    if (location.state && location.state.surahNumber) {
-      const { surahNumber } = location.state;
+    const updateCachedSurahs = async () => {
       if (surahs.length > 0) {
-        const selectedSurah = surahs.find(s => s.number === surahNumber);
-        if (selectedSurah) {
-          handleSurahChange(String(surahNumber));
+        const cachedSurahNumbers = new Set();
+        for (const surah of surahs) {
+          const cacheKey = `surah-${surah.number}-script-${arabicScript}-langs-${currentLanguages.join(',')}-tafsirs-${selectedTafsirs.join(',')}`;
+          const cachedData = await localforage.getItem(cacheKey);
+          if (cachedData) {
+            cachedSurahNumbers.add(surah.number);
+          }
         }
+        setCachedSurahs(cachedSurahNumbers);
       }
-    }
-  }, [location.state, surahs, handleSurahChange]);
+    };
+    // Re-run this effect whenever surahs, selected languages, tafsirs, or script changes
+    updateCachedSurahs();
+  }, [surahs, currentLanguages, selectedTafsirs, arabicScript]);
 
   useEffect(() => {
     stopAudio();
   }, [currentReciter, stopAudio]);
 
+  // NEW: This is the primary effect that triggers data fetching
   useEffect(() => {
-    const savedLangs = JSON.parse(localStorage.getItem('Qlangs'));
-    if (savedLangs && savedLangs.length > 0) {
-      setCurrentLanguages(savedLangs);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('Qlangs', JSON.stringify(currentLanguages));
-  }, [currentLanguages]);
-
-  // This useEffect re-fetches the surah data whenever display-related settings change
-useEffect(() => {
-    // Only re-fetch if a surah is already selected
     if (surahNumber) {
+      // Prevent redundant calls if the surahNumber is already the same
+      if (selectedSurahData && surahInfo && surahInfo.number === surahNumber) {
+        console.log(`[LOG] Surah ${surahNumber} is already loaded. Skipping re-fetch.`);
+        return;
+      }
       handleSurahChange(String(surahNumber));
     }
-  }, [currentLanguages, selectedTafsirs, arabicScript, surahNumber, handleSurahChange]);
-  
-  const handleSaveSelection = useCallback(() => {
+  }, [surahNumber, currentLanguages, selectedTafsirs, arabicScript, handleSurahChange]);
+
+
+  // NEW: This useEffect handles URL parameters and sets the state, which triggers the primary effect
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const surah = params.get('surah');
+    const start = params.get('start');
+    const end = params.get('end');
+    
+    if (surah && start && end && surahs.length > 0) {
+      const surahNum = parseInt(surah);
+      const startAyah = parseInt(start);
+      const endAyah = parseInt(end);
+
+      if (!isNaN(surahNum) && !isNaN(startAyah) && !isNaN(endAyah)) {
+        const selectedSurah = surahs.find(s => s.number === surahNum);
+        if (selectedSurah) {
+          console.log(`https://techdocs.broadcom.com/us/en/ca-mainframe-software/traditional-management/ca-xcom-data-transport-gateway/12-0/administrating/manage-global-parameters-file/manage-gateway-control-server-parameters/log-parameters.html Found URL parameters: surah=${surahNum}, start=${startAyah}, end=${endAyah}.`);
+          // Set the state which will trigger the primary useEffect
+          setSurahNumber(surahNum);
+          setLinkParams({ surahNum, startAyah, endAyah });
+          // Clear URL search params to clean up the URL bar
+          navigate(location.pathname, { replace: true });
+        } else {
+          console.error("https://techdocs.broadcom.com/us/en/ca-mainframe-software/traditional-management/ca-xcom-data-transport-gateway/12-0/administrating/manage-global-parameters-file/manage-gateway-control-server-parameters/log-parameters.html Shared link surah number not found in surah list.");
+        }
+      }
+    }
+  }, [location.search, surahs, navigate, location.pathname]);
+
+  // FIX: A separate useEffect to apply link params after data is loaded
+  useEffect(() => {
+    if (linkParams && selectedSurahData && surahInfo && surahInfo.number === linkParams.surahNum) {
+      console.log(`https://techdocs.broadcom.com/us/en/ca-mainframe-software/traditional-management/ca-xcom-data-transport-gateway/12-0/administrating/manage-global-parameters-file/manage-gateway-control-server-parameters/log-parameters.html Applying link parameters to loaded Surah data.`);
+      // Set the ayah range and bulk mode
+      setAyahRange([linkParams.startAyah, linkParams.endAyah]);
+      setIsBulkMode(true);
+      // Filter and set the selected ayahs based on the range
+      const newSelectedAyahs = selectedSurahData.filter(ayah =>
+          ayah.numberInSurah >= linkParams.startAyah && ayah.numberInSurah <= linkParams.endAyah
+      );
+      setSelectedAyahs(newSelectedAyahs);
+      
+      toast({
+        title: `Loaded shared memorisation set for ${surahInfo.englishName} (${linkParams.startAyah}-${linkParams.endAyah})`,
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+      // Reset link params after they have been processed
+      setLinkParams(null);
+    }
+  }, [linkParams, selectedSurahData, surahInfo, toast]);
+
+
+  const handleSaveSelection = useCallback(async () => {
     if (!surahInfo || selectedAyahs.length === 0) {
       toast({
         title: "No selection to save",
@@ -723,60 +869,191 @@ useEffect(() => {
       timestamp: Date.now(),
     };
 
-    setMemorizationSets([...memorizationSets, newSet]);
+    setMemorisationSets(prevSets => {
+      // UPDATED: Changed storage key for 'memorisation'
+      const updatedSets = [...prevSets, newSet];
+      localforage.setItem('quranMemorisationSets', updatedSets);
+      return updatedSets;
+    });
+
     toast({
       title: "Ayah range saved!",
       status: "success",
       duration: 2000,
       isClosable: true,
     });
-  }, [selectedAyahs, surahInfo, memorizationSets, toast]);
+  }, [selectedAyahs, surahInfo, toast]);
 
-  const loadSavedSet = useCallback(async (set) => {
-    onMemorizationSetsClose();
+  // NEW: Function to generate a shareable link
+  const generateShareableLink = useCallback((surahNumber, start, end) => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?surah=${surahNumber}&start=${start}&end=${end}`;
+  }, []);
+  
+  // NEW: Function to play all selected ayahs in a playlist
+  const playSelectedAyahs = useCallback(() => {
+    if (selectedAyahs.length === 0) {
+      toast({
+        title: "No ayahs selected",
+        description: "Please select ayahs to play.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    stopAudio();
+    // Sort selected ayahs by their number in the surah
+    const sortedSelectedAyahs = [...selectedAyahs].sort((a, b) => a.numberInSurah - b.numberInSurah);
+    // Find the indices of the sorted ayahs within the main selectedSurahData array
+    const playlistIndices = sortedSelectedAyahs.map(ayah => selectedSurahData.findIndex(sAyah => sAyah.number === ayah.number));
+    
+    if (playlistIndices.length > 0) {
+      handleAyahClick(playlistIndices[0], playlistIndices);
+    }
+  }, [selectedAyahs, selectedSurahData, toast, stopAudio, handleAyahClick]);
 
-    await handleSurahChange(String(set.surahNumber));
+  // NEW: Function to toggle an ayah selection, used in bulk mode
+  const toggleAyahSelection = useCallback((ayah) => {
+    // Check if the ayah is already selected
+    const isAlreadySelected = selectedAyahs.some(sAyah => sAyah.number === ayah.number);
+    if (isAlreadySelected) {
+      setSelectedAyahs(selectedAyahs.filter(sAyah => sAyah.number !== ayah.number));
+    } else {
+      setSelectedAyahs([...selectedAyahs, ayah]);
+    }
+  }, [selectedAyahs]);
 
-    setTimeout(() => {
-      if (selectedSurahData) {
-        setAyahRange([set.rangeStart, set.rangeEnd]);
-        const newSelectedAyahs = selectedSurahData.filter(ayah =>
-          ayah.numberInSurah >= set.rangeStart && ayah.numberInSurah <= set.rangeEnd
-        );
-        setSelectedAyahs(newSelectedAyahs);
+
+  // MODIFIED: This function now uses the Web Share API with a fallback.
+  const handleShareSet = useCallback((set) => {
+    const link = generateShareableLink(set.surahNumber, set.rangeStart, set.rangeEnd);
+    const shareData = {
+      title: 'Memorise Quran Ayahs',
+      text: `Memorise this range from Surah ${set.surahName}: Ayahs ${set.rangeStart}-${set.rangeEnd}`,
+      url: link,
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData)
+        .then(() => console.log('Shared successfully'))
+        .catch((error) => {
+          if (error.name !== 'AbortError') {
+            console.error('Error sharing:', error);
+            toast({
+              title: "Failed to share",
+              description: "An error occurred while trying to open the share dialog.",
+              status: "error",
+              duration: 3000,
+              isClosable: true,
+            });
+          }
+        });
+    } else {
+      // Fallback for browsers that do not support the Web Share API
+      navigator.clipboard.writeText(link).then(() => {
         toast({
-          title: `Loaded ${set.surahName} Ayahs ${set.rangeStart}-${set.rangeEnd}`,
-          status: "info",
+          title: "Link copied to clipboard!",
+          status: "success",
           duration: 3000,
           isClosable: true,
         });
-        setIsBulkMode(true);
-      } else {
-        console.error("Selected surah data not available after loading saved set.");
+      }).catch(err => {
+        console.error('Failed to copy link:', err);
         toast({
-          title: "Failed to load saved set",
-          description: "Surah data could not be retrieved.",
+          title: "Failed to copy link",
           status: "error",
           duration: 3000,
           isClosable: true,
         });
-      }
-    }, 500);
-  }, [onMemorizationSetsClose, handleSurahChange, selectedSurahData, toast]);
+      });
+    }
+  }, [generateShareableLink, toast]);
+  
+  // MODIFIED: This function now uses the Web Share API with a fallback.
+  const handleDirectShare = useCallback(() => {
+    if (!surahInfo || !isBulkMode || !ayahRange || ayahRange[0] === null || ayahRange[1] === null) {
+        toast({
+            title: "Invalid ayah range",
+            description: "Please select a valid range of ayahs to share in Bulk Ayah Selection Mode.",
+            status: "warning",
+            duration: 3000,
+            isClosable: true,
+        });
+        return;
+    }
+    const link = generateShareableLink(surahInfo.number, ayahRange[0], ayahRange[1]);
+    const shareData = {
+      title: 'Memorise Quran Ayahs',
+      text: `Memorise this range from Surah ${surahInfo.englishName}: Ayahs ${ayahRange[0]}-${ayahRange[1]}`,
+      url: link,
+    };
 
-  const loadFavoriteSurah = useCallback(async (surah) => {
-    onFavoritesClose();
-    setIsBulkMode(false);
+    if (navigator.share) {
+      navigator.share(shareData)
+        .then(() => console.log('Shared successfully'))
+        .catch((error) => {
+          if (error.name !== 'AbortError') {
+            console.error('Error sharing:', error);
+            toast({
+              title: "Failed to share",
+              description: "An error occurred while trying to open the share dialog.",
+              status: "error",
+              duration: 3000,
+              isClosable: true,
+            });
+          }
+        });
+    } else {
+      // Fallback for browsers that do not support the Web Share API
+      navigator.clipboard.writeText(link).then(() => {
+        toast({
+          title: "Link copied!",
+          description: `Shareable link for ${surahInfo.englishName} (${ayahRange[0]}-${ayahRange[1]}) copied to clipboard.`,
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
+      }).catch(err => {
+        console.error('Failed to copy link:', err);
+        toast({
+          title: "Failed to copy link",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+      });
+    }
+  }, [surahInfo, isBulkMode, ayahRange, generateShareableLink, toast]);
 
-    await handleSurahChange(String(surah.surahNumber));
+  const loadSavedSet = useCallback(async (set) => {
+    onMemorisationSetsClose();
+    setSurahNumber(set.surahNumber);
+    setLinkParams({ surahNum: set.surahNumber, startAyah: set.rangeStart, endAyah: set.rangeEnd });
+
 
     toast({
-      title: `Loaded favorite Surah: ${surah.englishName}`,
+      title: `Loaded ${set.surahName} Ayahs ${set.rangeStart}-${set.rangeEnd}`,
       status: "info",
       duration: 3000,
       isClosable: true,
     });
-  }, [onFavoritesClose, handleSurahChange, toast]);
+  }, [onMemorisationSetsClose, setSurahNumber, setLinkParams, toast]);
+
+  const loadFavoriteSurah = useCallback(async (surah) => {
+    onFavoritesClose();
+    setIsBulkMode(false);
+    setSurahNumber(surah.surahNumber);
+    // NEW: Clear any pending link parameters when a favorite is loaded
+    setLinkParams(null);
+
+    toast({
+      title: `Loaded favourite Surah: ${surah.englishName}`,
+      status: "info",
+      duration: 3000,
+      isClosable: true,
+    });
+  }, [onFavoritesClose, setSurahNumber, setLinkParams, toast]);
 
   const displaySelectedTexts = useCallback(() => {
     if (selectedAyahs.length === 0) {
@@ -784,8 +1061,7 @@ useEffect(() => {
         title: "No ayahs selected",
         description: "Please select ayahs to display.",
         status: "warning",
-        duration: 3000,
-        isClosable: true,
+      isClosable: true,
       });
       return;
     }
@@ -830,7 +1106,16 @@ useEffect(() => {
 
           {/* Desktop/Tablet Menu - visible on screens >= md */}
           <Flex display={{ base: 'none', md: 'flex' }} wrap="wrap" justify="flex-end" gap={2} alignItems="center">
-            <Tooltip label="Bulk Selection Mode">
+            {/* NEW: Desktop Light/Dark Mode Button */}
+            <Tooltip label="Toggle Light/Dark Mode">
+              <IconButton
+                icon={colorMode === 'light' ? <FaMoon /> : <FaSun />}
+                onClick={toggleColorMode}
+                aria-label="Toggle theme"
+                variant="ghost"
+              />
+            </Tooltip>
+            <Tooltip label="Bulk Ayah Selection Mode">
               <IconButton
                 icon={isBulkMode ? <MdBookmark /> : <MdBookmarkBorder />}
                 onClick={() => {
@@ -844,21 +1129,23 @@ useEffect(() => {
                   }
                 }}
                 colorScheme={isBulkMode ? "blue" : "gray"}
-                aria-label="Bulk mode"
+                aria-label="Bulk ayah mode"
               />
             </Tooltip>
-            <Tooltip label="View Favorites">
+            {/* UPDATED: Renamed tooltip label to "Favorite Surahs" */}
+            <Tooltip label="View Favourite Surahs">
               <IconButton
                 icon={<FaHeart color={favorites.length > 0 ? "red" : "gray"} />}
                 onClick={onFavoritesOpen}
-                aria-label="Favorites"
+                aria-label="Favourite Surahs"
               />
             </Tooltip>
-            <Tooltip label="View Saved Memorization Sets">
+            {/* UPDATED: Renamed tooltip label to "Saved Memorisation Sets Ayah" */}
+            <Tooltip label="View Saved Memorisation Sets Ayah">
               <IconButton
-                icon={<FaRegClock color={memorizationSets.length > 0 ? "green" : "gray"} />}
-                onClick={onMemorizationSetsOpen}
-                aria-label="Saved Memorization Sets"
+                icon={<FaRegClock color={memorisationSets.length > 0 ? "green" : "gray"} />}
+                onClick={onMemorisationSetsOpen}
+                aria-label="Saved Memorisation Sets"
               />
             </Tooltip>
             <Button
@@ -873,15 +1160,25 @@ useEffect(() => {
           </Flex>
 
           {/* Mobile Menu Button - visible only on screens < md */}
-          <IconButton
-            icon={<MdMenu />}
-            aria-label="Open Menu"
-            display={{ base: 'flex', md: 'none' }}
-            onClick={onMenuOpen}
-            bg={mobileMenuButtonBg}
-            color={mobileMenuButtonColor}
-            _hover={{ bg: mobileMenuButtonHoverBg }}
-          />
+          <Flex display={{ base: 'flex', md: 'none' }} alignItems="center" gap={2}>
+            {/* NEW: Mobile Light/Dark Mode Button */}
+            <Tooltip label="Toggle Light/Dark Mode">
+              <IconButton
+                icon={colorMode === 'light' ? <FaMoon /> : <FaSun />}
+                onClick={toggleColorMode}
+                aria-label="Toggle theme"
+                variant="ghost"
+              />
+            </Tooltip>
+            <IconButton
+              icon={<MdMenu />}
+              aria-label="Open Menu"
+              onClick={onMenuOpen}
+              bg={mobileMenuButtonBg}
+              color={mobileMenuButtonColor}
+              _hover={{ bg: mobileMenuButtonHoverBg }}
+            />
+          </Flex>
         </Flex>
 
         {/* Mobile Menu Drawer */}
@@ -906,24 +1203,26 @@ useEffect(() => {
                     onMenuClose();
                   }}
                   colorScheme={isBulkMode ? "blue" : "gray"}
-                  aria-label="Bulk Selection Mode"
+                  aria-label="Bulk Ayah Selection Mode"
                   justifyContent="flex-start"
                 >
-                  Bulk Selection Mode
+                  Bulk Ayah Selection Mode
                 </Button>
+                {/* UPDATED: Renamed button text */}
                 <Button
                   leftIcon={<FaHeart color={favorites.length > 0 ? "red" : "gray"} />}
                   onClick={() => { onFavoritesOpen(); onMenuClose(); }}
                   justifyContent="flex-start"
                 >
-                  Favorites
+                  Favourite Surahs
                 </Button>
+                {/* UPDATED: Renamed button text */}
                 <Button
-                  leftIcon={<FaRegClock color={memorizationSets.length > 0 ? "green" : "gray"} />}
-                  onClick={() => { onMemorizationSetsOpen(); onMenuClose(); }}
+                  leftIcon={<FaRegClock color={memorisationSets.length > 0 ? "green" : "gray"} />}
+                  onClick={() => { onMemorisationSetsOpen(); onMenuClose(); }}
                   justifyContent="flex-start"
                 >
-                  Saved Sets
+                  Saved Memorisation Sets Ayah
                 </Button>
                 <Button
                   leftIcon={<MdSettings />}
@@ -953,7 +1252,7 @@ useEffect(() => {
                 <FormControl>
                   <FormLabel color={modalBodyTextColor}>Select Surah</FormLabel>
                   <Select
-                    onChange={(e) => handleSurahChange(e.target.value)}
+                    onChange={(e) => setSurahNumber(parseInt(e.target.value))}
                     placeholder="Choose a Surah"
                     size="lg"
                     variant="filled"
@@ -967,9 +1266,9 @@ useEffect(() => {
                       <option
                         value={surah.number}
                         key={surah.number}
-                        style={{ backgroundColor: optionBg, color: optionColor }}
                       >
-                        {surah.number}. {surah.englishName} ({surah.name})
+                         {/* UPDATED: Use a dot (•) instead of a tick (✓) for the cached indicator */}
+                         {cachedSurahs.has(surah.number) ? '• ' : ''}{surah.number}. {surah.englishName} ({surah.name})
                       </option>
                     ))}
                   </Select>
@@ -1026,12 +1325,22 @@ useEffect(() => {
                         >
                           Save
                         </Button>
+                        {/* NEW: Direct Share Button */}
+                        <Tooltip label="Copy shareable link for this range">
+                          <IconButton
+                            icon={<FaShare />}
+                            size="sm"
+                            colorScheme="teal"
+                            onClick={handleDirectShare}
+                            aria-label="Share memorisation set"
+                          />
+                        </Tooltip>
                       </>
                     )}
                     <IconButton
                       icon={isFavorited() ? <FaHeart color="red" /> : <FaRegHeart />}
                       onClick={toggleFavorite}
-                      aria-label={isFavorited() ? "Remove from favorites" : "Add to favorites"}
+                      aria-label={isFavorited() ? "Remove from favourite surahs" : "Add to favourite surahs"}
                       colorScheme={isFavorited() ? "red" : "gray"}
                       variant="ghost"
                     />
@@ -1098,21 +1407,24 @@ useEffect(() => {
     </RangeSlider>
   </Box>
 )}
-
-            {selectedSurahData.map((ayah, index) => {
+            {/* The corrected code for the ayah rendering loop starts here */}
+            {selectedSurahData
+              .filter(ayah => {
+                // Only filter if bulk mode is active, otherwise show all
+                return isBulkMode ?
+                  (ayah.numberInSurah >= ayahRange[0] && ayah.numberInSurah <= ayahRange[1]) :
+                  true;
+              })
+              .map((ayah, index) => {
               const isSelected = selectedAyahs.some(sAyah => sAyah.number === ayah.number);
-              const isAyahInSelectedRange = isBulkMode
-                ? (ayah.numberInSurah >= ayahRange[0] && ayah.numberInSurah <= ayahRange[1])
-                : true;
-
-              return isAyahInSelectedRange ? (
+              return (
                 <AyahCard
                   key={ayah.number}
                   ayah={ayah}
                   index={index}
                   currentlyPlayingAyahIndex={currentlyPlayingAyahIndex}
                   isSelected={isSelected}
-                  toggleAyahSelection={isBulkMode ? toggleAyahSelection : () => {}}
+                  toggleAyahSelection={toggleAyahSelection}
                   handleAyahClick={handleAyahClick}
                   currentLanguages={currentLanguages}
                   translationNames={translationNames}
@@ -1122,9 +1434,13 @@ useEffect(() => {
                   translationFontSize={translationFontSize}
                   grayTextColor={grayTextColor}
                   arabicTextColor={arabicTextColor}
+                  // NEW: Pass the cachedAyahAudio set to the AyahCard
+                  cachedAyahAudio={cachedAyahAudio}
+                  isBulkMode={isBulkMode}
                 />
-              ) : null;
+              );
             })}
+            {/* The corrected code for the ayah rendering loop ends here */}
           </Stack>
         )}
       </Box>
@@ -1168,7 +1484,6 @@ useEffect(() => {
                   value={currentReciter}
                   onChange={(e) => {
                     setCurrentReciter(e.target.value);
-                    localStorage.setItem('RecitorSet', JSON.stringify(e.target.value));
                     toast({
                       title: "Reciter updated",
                       status: "success",
@@ -1196,13 +1511,9 @@ useEffect(() => {
                   onChange={(e) => {
                     const newScript = e.target.value;
                     setArabicScript(newScript);
-                    localStorage.setItem('arabicScript', JSON.stringify(newScript));
-
-                    // Immediately trigger a re-fetch with the new script if a surah is selected
                     if (surahNumber) {
-                      handleSurahChange(surahNumber, newScript);
+                      setSurahNumber(surahNumber); // Trigger fetch with new script
                     }
-
                     toast({
                       title: "Arabic script updated",
                       status: "success",
@@ -1265,7 +1576,6 @@ useEffect(() => {
                   mt={4}
                   size="sm"
                   onClick={() => {
-                    localStorage.setItem('Qtafsirs', JSON.stringify(selectedTafsirs));
                     toast({
                       title: "Tafsir settings saved",
                       status: "success",
@@ -1333,11 +1643,12 @@ useEffect(() => {
       <Modal isOpen={isFavoritesOpen} onClose={onFavoritesClose} size="lg">
         <ModalOverlay />
         <ModalContent bg={modalBg}>
-          <ModalHeader borderBottomWidth="1px" borderColor={modalHeaderBorderColor} color={optionColor}>Your Favorite Surahs</ModalHeader>
+          {/* UPDATED: Renamed modal header */}
+          <ModalHeader borderBottomWidth="1px" borderColor={modalHeaderBorderColor} color={optionColor}>Your Favourite Surahs</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {favorites.length === 0 ? (
-              <Text color={modalBodyTextColor}>No favorites added yet.</Text>
+              <Text color={modalBodyTextColor}>No favourite surahs added yet.</Text>
             ) : (
               <Stack spacing={3}>
                 {favorites.map(fav => (
@@ -1370,7 +1681,7 @@ useEffect(() => {
                         size="sm"
                         colorScheme="red"
                         onClick={() => setFavorites(favorites.filter(f => f.surahNumber !== fav.surahNumber))}
-                        aria-label="Delete favorite"
+                        aria-label="Delete favourite"
                       />
                     </Flex>
                   </Flex>
@@ -1384,18 +1695,20 @@ useEffect(() => {
         </ModalContent>
       </Modal>
 
-      {/* Memorization Sets Modal */}
-      <Modal isOpen={isMemorizationSetsOpen} onClose={onMemorizationSetsClose} size="lg">
+      {/* Memorisation Sets Modal */}
+      {/* UPDATED: Renamed modal state variable */}
+      <Modal isOpen={isMemorisationSetsOpen} onClose={onMemorisationSetsClose} size="lg">
         <ModalOverlay />
         <ModalContent bg={modalBg}>
-          <ModalHeader borderBottomWidth="1px" borderColor={modalHeaderBorderColor} color={optionColor}>Saved Memorization Sets</ModalHeader>
+          {/* UPDATED: Renamed modal header */}
+          <ModalHeader borderBottomWidth="1px" borderColor={modalHeaderBorderColor} color={optionColor}>Saved Memorisation Sets Ayah</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            {memorizationSets.length === 0 ? (
-              <Text color={modalBodyTextColor}>No memorization sets saved yet.</Text>
+            {memorisationSets.length === 0 ? (
+              <Text color={modalBodyTextColor}>No memorisation sets saved yet.</Text>
             ) : (
               <Stack spacing={3}>
-                {memorizationSets.map(set => (
+                {memorisationSets.map(set => (
                   <Flex
                     key={set.id}
                     p={3}
@@ -1417,12 +1730,23 @@ useEffect(() => {
                       <Button size="sm" colorScheme="blue" mr={2} onClick={() => loadSavedSet(set)}>
                         Load
                       </Button>
+                      {/* NEW: Share button for each memorisation set */}
+                      <Tooltip label="Copy shareable link">
+                        <IconButton
+                          icon={<FaShare />}
+                          size="sm"
+                          colorScheme="green"
+                          mr={2}
+                          onClick={() => handleShareSet(set)}
+                          aria-label="Share memorisation set"
+                        />
+                      </Tooltip>
                       <IconButton
                         icon={<MdDelete />}
                         size="sm"
                         colorScheme="red"
-                        onClick={() => setMemorizationSets(memorizationSets.filter(s => s.id !== set.id))}
-                        aria-label="Delete memorization set"
+                        onClick={() => setMemorisationSets(memorisationSets.filter(s => s.id !== set.id))}
+                        aria-label="Delete memorisation set"
                       />
                     </Flex>
                   </Flex>
@@ -1431,7 +1755,7 @@ useEffect(() => {
             )}
           </ModalBody>
           <ModalFooter borderTopWidth="1px" borderColor={modalHeaderBorderColor}>
-            <Button onClick={onMemorizationSetsClose}>Close</Button>
+            <Button onClick={onMemorisationSetsClose}>Close</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

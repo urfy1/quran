@@ -15,3 +15,16 @@ resolved current ayah colour and text lihght/dark
 
 v6 resolved tafsir background colour in both light/dark
 also resolved background colour for playing ayah
+
+v7 working model being used in render
+
+v8 it now saves to local cache for surah and audio. if you select surah
+it downloads Arabic, and translation. whatever audio has been listened to is also saved.
+
+v9 improved caching system 
+
+v10 shareable link now works. what an amazing feature revolutionary
+
+v11 sharing is now on the surah screen once you select the ayahs
+
+http://localhost:3000/?surah=2&start=285&end=286
