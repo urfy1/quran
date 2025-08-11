@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from "axios";
 import {
   Box, Card, CardHeader, CardBody, Heading, Text, Stack, StackDivider, Button, Spinner, Center,
@@ -8,17 +8,52 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ReactMarkdown from 'react-markdown';
 import { Howl } from 'howler';
 import { FaPlay, FaPause, FaStop } from 'react-icons/fa';
+import localforage from 'localforage';
+
+// CORRECTED: The API_AUDIO_BASE_URL is now confirmed to be 'https://everyayah.com/data'
+const API_TAFSIR_BASE_URL = 'https://quranapi.pages.dev/api/tafsir';
+const API_TRANSLATION_BASE_URL = 'https://api.alquran.cloud/v1';
+const API_ARABIC_BASE_URL = 'https://api.quran.com/api/v4';
+const API_AUDIO_BASE_URL = 'https://everyayah.com/data';
+
+// CORRECTED: Reciter Map with the correct folder for Abdul Rahman Al-Sudais (64kbps)
+const reciterMap = {
+  'Mishary Rashid Alafasy': { type: 'everyayah', folder: 'Alafasy_128kbps' },
+  'Abdul Baset Abdul Samad Murattal': { type: 'everyayah', folder: 'Abdul_Basit_Murattal_64kbps' },
+  'Abdul Baset Abdul Samad Mujawwad': { type: 'everyayah', folder: 'Abdul_Basit_Mujawwad_128kbps' },
+  'Mahmoud Khalil Al-Husary': { type: 'everyayah', folder: 'Husary_128kbps' },
+  'Muhammad Ayyoub': { type: 'everyayah', folder: 'Muhammad_Ayyoub_128kbps' },
+  'Nasser Al Qatami': { type: 'everyayah', folder: 'Nasser_Alqatami_128kbps' },
+  'Yasser Al-Dossari': { type: 'everyayah', folder: 'Yasser_Ad-Dossary_128kbps' },
+  'Hani Ar-Rifai': { type: 'everyayah', folder: 'Hani_Rifai_192kbps' },
+  'Khalifa Al Tunaiji': { type: 'everyayah', folder: 'Khalifa_Al_Tunaiji_64kbps' },
+  'Abdullah Awad Al-Juhany': { type: 'everyayah', folder: 'Abdullaah_3awwaad_Al-Juhaynee_128kbps' },
+  'Saud Al-Shuraim': { type: 'everyayah', folder: 'Abdurrahmaan_As-Sudais_64kbps' }, 
+  // UPDATED: Corrected reciter folder based on the user's working link
+  'Abdul Rahman Al-Sudais': { type: 'everyayah', folder: 'Abdurrahmaan_As-Sudais_64kbps' },
+  'Ali Jaber': { type: 'everyayah', folder: 'Ali_Jaber_64kbps' },
+  'Ahmed Al-Ajmi': { type: 'everyayah', folder: 'Ahmed_ibn_Ali_al-Ajamy_64kbps_QuranExplorer.Com' },
+  'Mohammed Al-Luhaidan': { type: 'everyayah', folder: 'mohammed_al_luhaidan_192kbps' },
+  'Al Ghamadi': { type: 'everyayah', folder: 'Ghamadi_40kbps' },
+  'Minshawi Murattal': { type: 'everyayah', folder: 'Minshawy_Murattal_128kbps' },
+  'Minshawi Mujawwad': { type: 'everyayah', folder: 'Minshawy_Mujawwad_192kbps' },
+  'Sahih International (Ibrahim Walk)': { type: 'everyayah', folder: 'English/Sahih_Intnl_Ibrahim_Walk_192kbps' }
+};
 
 // Define translation names for display
 const translationNames = {
-  'en.asad': "Muhammad Asad",
   'en.pickthall': "Pickthall",
   'en.yusufali': "Yusuf Ali",
   'en.sahih': "Sahih International",
   'en.transliteration': "Transliteration",
   'ur.maududi': "Maududi (Urdu)",
   'fr.hamidullah': "Hamidullah (French)",
-  'es.bornez': "Bornez (Spanish)",
+  'bn.bengali': "Muhiuddin Khan (Bengali)",
+  'zh.jian': "Ma Jian (Chinese)",
+  'de.aburida': "Abu Rida (German)",
+  'hi.hindi': "Suhel Farooq Khan and Saifur Rahman Nadwi (Hindi)",
+  'it.piccardo': "Hamza Roberto Piccardo (Italian)",
+  'so.abduh': "Mahmud Muhammad Abduh (Somalian)"
 };
 
 // Define Tafsir author display names
@@ -29,17 +64,14 @@ const tafsirNames = {
 };
 
 // Component for rendering individual Ayah details on the TafsirsPage
-const TafsirAyahCard = ({ ayah, arabicFontSize, translationFontSize, cardBg, headingColor, arabicTextColor, blueText, purpleBg, purpleBorder, purpleText, grayTextColor,
+const TafsirAyahCard = ({ ayah, arabicFontSize, translationFontSize, cardBg, headingColor, arabicTextColor, blueText, purpleText, grayTextColor,
   currentlyPlayingAyahIndex, handleAyahClick, highlightColor, ayahRefs
 }) => {
   const [showTafsir, setShowTafsir] = useState(false);
   const isCurrentPlaying = currentlyPlayingAyahIndex === ayah.number;
-
-  // Use useColorModeValue for card background and text colors
   const cardHoverBg = useColorModeValue('gray.50', 'gray.700');
-  // New color for Tafsir box background
-  const tafsirBoxBg = useColorModeValue('white', 'gray.700'); // White in light mode, purple.900 in dark mode
-  const tafsirBoxBorder = useColorModeValue('gray.200', 'gray.700'); // Gray.200 in light mode, purple.700 in dark mode
+  const tafsirBoxBg = useColorModeValue('white', 'gray.700');
+  const tafsirBoxBorder = useColorModeValue('gray.200', 'gray.700');
 
   return (
     <Card
@@ -79,7 +111,7 @@ const TafsirAyahCard = ({ ayah, arabicFontSize, translationFontSize, cardBg, hea
         </Text>
         {ayah.translations.map((trans, transIdx) => (
           <Box key={transIdx} mb={2}>
-            <Heading size="sm" color={blueText} mb={1}> {/* Changed to Heading for translation */}
+            <Heading size="sm" color={blueText} mb={1}>
               {translationNames[trans.lang] || trans.lang}:
             </Heading>
             <Text fontSize={`${translationFontSize}px`} color={grayTextColor}>{trans.text}</Text>
@@ -107,8 +139,8 @@ const TafsirAyahCard = ({ ayah, arabicFontSize, translationFontSize, cardBg, hea
                     p={3}
                     borderRadius="md"
                     borderWidth="1px"
-                    bg={tafsirBoxBg} // Use new tafsirBoxBg
-                    borderColor={tafsirBoxBorder} // Use new tafsirBoxBorder
+                    bg={tafsirBoxBg}
+                    borderColor={tafsirBoxBorder}
                   >
                     <Text fontWeight="semibold" fontSize="md" color={purpleText} mb={1}>
                       {tafsirNames[tafsir.author] || tafsir.author}
@@ -143,49 +175,12 @@ const TafsirsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [currentLanguages, setCurrentLanguages] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('Qlangs')) || ['en.asad'];
-    } catch (e) {
-      console.error("Failed to parse Qlangs from localStorage", e);
-      return ['en.asad'];
-    }
-  });
-  const [currentTafsirs, setCurrentTafsirs] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('Qtafsirs')) || ['Ibn Kathir'];
-    } catch (e) {
-      console.error("Failed to parse Qtafsirs from localStorage", e);
-      return ['Ibn Kathir'];
-    }
-  });
-  const [currentReciter, setCurrentReciter] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('RecitorSet')) || 'ar.alafasy';
-    } catch (e) {
-      console.error("Failed to parse RecitorSet from localStorage", e);
-      return 'ar.alafasy';
-    }
-  });
-
-  const [arabicFontSize, setArabicFontSize] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('arabicFontSize')) || 32;
-    }
-    catch (e) {
-      console.error("Failed to parse arabicFontSize from localStorage", e);
-      return 32;
-    }
-  });
-  const [translationFontSize, setTranslationFontSize] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('translationFontSize')) || 16;
-    }
-    catch (e) {
-      console.error("Failed to parse translationFontSize from localStorage", e);
-      return 16;
-    }
-  });
+  // Using localforage for state persistence
+  const [currentLanguages, setCurrentLanguages] = useState([]);
+  const [currentTafsirs, setCurrentTafsirs] = useState([]);
+  const [currentReciter, setCurrentReciter] = useState('');
+  const [arabicFontSize, setArabicFontSize] = useState(32);
+  const [translationFontSize, setTranslationFontSize] = useState(16);
 
   // Audio playback states and refs
   const currentSoundRef = useRef(null);
@@ -194,41 +189,51 @@ const TafsirsPage = () => {
   const [currentlyPlayingAyahIndex, setCurrentlyPlayingAyahIndex] = useState(null);
   const ayahRefs = useRef({});
 
-  // Define highlightColor using useColorModeValue for consistency
-  const highlightColor = useColorModeValue('yellow.100', 'blue.700'); // Light mode: light yellow, Dark mode: blue.700
-
-  // Mapping for the Ayah Audio API reciter IDs
-  const reciterAyahApiMap = {
-    'ar.alafasy': 1,
-    'ar.abubakraldhabi': 2,
-    'ar.nasseralqatami': 3,
-    'ar.yasseraldossari': 4,
-    'ar.haniarrifai': 5,
-  };
-
-  // Theme-aware colors using Chakra UI's useColorModeValue hook
+  const highlightColor = useColorModeValue('yellow.100', 'blue.700');
   const cardBg = useColorModeValue('light.cardBg', 'dark.cardBg');
   const cardHeaderBg = useColorModeValue('gray.50', 'gray.800');
   const headingColor = useColorModeValue('brand.600', 'brand.200');
   const textColor = useColorModeValue('light.text', 'dark.text');
   const arabicTextColor = useColorModeValue('quran.darkGreen', 'quran.gold');
   const dividerColor = useColorModeValue('gray.200', 'gray.600');
-  const purpleBg = useColorModeValue('purple.50', 'purple.900'); // Original purpleBg, not used for Tafsir box
-  const purpleBorder = useColorModeValue('purple.100', 'purple.700'); // Original purpleBorder, not used for Tafsir box
   const purpleText = useColorModeValue('purple.800', 'purple.200');
   const blueText = useColorModeValue('blue.700', 'blue.300');
   const grayTextColor = useColorModeValue('gray.600', 'gray.400');
 
-  // Audio functions (copied and adapted from QuranReaderPage.js)
-  const getAyahAudioUrl = (surahNum, ayahNumInSurah, reciterId) => {
-    const reciterNo = reciterAyahApiMap[reciterId];
-    if (reciterNo && surahNum && ayahNumInSurah) {
-      return `https://the-quran-project.github.io/Quran-Audio/Data/${reciterNo}/${surahNum}_${ayahNumInSurah}.mp3`;
+  useEffect(() => {
+    const loadSettings = async () => {
+      const savedLangs = await localforage.getItem('Qlangs');
+      if (savedLangs) setCurrentLanguages(savedLangs);
+
+      const savedTafsirs = await localforage.getItem('Qtafsirs');
+      if (savedTafsirs) setCurrentTafsirs(savedTafsirs);
+
+      const savedReciter = await localforage.getItem('RecitorSet');
+      if (savedReciter) setCurrentReciter(savedReciter);
+
+      const savedArabicFontSize = await localforage.getItem('arabicFontSize');
+      if (savedArabicFontSize) setArabicFontSize(savedArabicFontSize);
+
+      const savedTranslationFontSize = await localforage.getItem('translationFontSize');
+      if (savedTranslationFontSize) setTranslationFontSize(savedTranslationFontSize);
+    };
+    loadSettings();
+  }, []);
+
+  // CORRECTED: getAyahAudioUrl now uses the corrected everyayah.com API
+  const getAyahAudioUrl = useCallback((surahNum, ayahNumInSurah, reciterName) => {
+    const reciterInfo = reciterMap[reciterName];
+    if (!reciterInfo) return '';
+
+    if (reciterInfo.type === 'everyayah') {
+      const paddedSurah = String(surahNum).padStart(3, '0');
+      const paddedAyah = String(ayahNumInSurah).padStart(3, '0');
+      return `${API_AUDIO_BASE_URL}/${reciterInfo.folder}/${paddedSurah}${paddedAyah}.mp3`;
     }
     return '';
-  };
+  }, []);
 
-  const stopAudio = () => {
+  const stopAudio = useCallback(() => {
     if (currentSoundRef.current) {
       currentSoundRef.current.stop();
       currentSoundRef.current.unload();
@@ -240,9 +245,9 @@ const TafsirsPage = () => {
     }
     setIsPlaying(false);
     setCurrentlyPlayingAyahIndex(null);
-  };
+  }, []);
 
-  const preloadNextAyah = (nextAyahNumber) => {
+  const preloadNextAyah = useCallback((nextAyahNumber) => {
     const nextAyah = ayahsToDisplay.find(a => a.number === nextAyahNumber);
     if (!nextAyah || typeof nextAyah.numberInSurah === 'undefined' || nextAyah.numberInSurah === null) {
       console.warn('Skipping preload: Next ayah data is invalid or missing numberInSurah.', nextAyah);
@@ -274,9 +279,9 @@ const TafsirsPage = () => {
         }
       });
     }
-  };
+  }, [ayahsToDisplay, surahDetails, getAyahAudioUrl, currentReciter]);
 
-  const handleAyahClick = (ayahNumber) => {
+  const handleAyahClick = useCallback((ayahNumber) => {
     const ayah = ayahsToDisplay.find(a => a.number === ayahNumber);
     if (!ayah || typeof ayah.numberInSurah === 'undefined' || ayah.numberInSurah === null) {
       console.error(`Invalid Ayah object or numberInSurah for ayah number ${ayahNumber}. Skipping playback.`);
@@ -285,7 +290,6 @@ const TafsirsPage = () => {
     }
 
     const surahNumForAudio = ayah.surah?.number || surahDetails?.number;
-
     if (!surahNumForAudio) {
       console.error(`Surah number not available for ayah ${ayah.numberInSurah}. Cannot play audio.`);
       stopAudio();
@@ -335,9 +339,9 @@ const TafsirsPage = () => {
         ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  };
+  }, [ayahsToDisplay, surahDetails, getAyahAudioUrl, currentReciter, currentlyPlayingAyahIndex, isPlaying, stopAudio, preloadNextAyah]);
 
-  const handleAudioEnd = (currentAyahNumber) => {
+  const handleAudioEnd = useCallback((currentAyahNumber) => {
     const currentAyahIndexInDisplay = ayahsToDisplay.findIndex(a => a.number === currentAyahNumber);
     const nextAyahInDisplay = ayahsToDisplay[currentAyahIndexInDisplay + 1];
 
@@ -382,10 +386,12 @@ const TafsirsPage = () => {
     } else {
       stopAudio();
     }
-  };
+  }, [ayahsToDisplay, handleAyahClick, stopAudio, preloadNextAyah]);
 
+  // UPDATED: useEffect to handle data fetching
   useEffect(() => {
     if (selectedAyahsData && selectedAyahsData.length > 0) {
+      // Logic for displaying pre-selected ayahs (from QuranReaderPage)
       const processedSelectedAyahsData = selectedAyahsData.map(ayah => ({
         ...ayah,
         surah: ayah.surah || surahInfoFromLink
@@ -393,101 +399,100 @@ const TafsirsPage = () => {
       setSurahDetails({ ...surahInfoFromLink, ayahs: processedSelectedAyahsData });
       setIsLoading(false);
       setError(null);
-    } else if (surahNumberFromLink) {
+    } else if (surahNumberFromLink && ayahNumberFromLink) {
+      // Logic for displaying a single ayah from a direct link
       setIsLoading(true);
       setError(null);
 
-      const fetchPromises = currentLanguages.map(lang =>
-        axios.get(`https://api.alquran.cloud/v1/surah/${surahNumberFromLink}/${lang}`)
-      );
+      const fetchTafsirAndTranslations = async () => {
+        try {
+          const tafsirPromises = currentTafsirs.map(tafsirName =>
+            axios.get(`${API_TAFSIR_BASE_URL}/${surahNumberFromLink}_${ayahNumberFromLink}.json`)
+              .catch(err => {
+                console.error(`Failed to fetch Tafsir for ${tafsirName}:`, err);
+                return { data: { tafsirs: [] } };
+              })
+          );
+          
+          const translationPromises = currentLanguages.map(lang =>
+            axios.get(`${API_TRANSLATION_BASE_URL}/ayah/${surahNumberFromLink}:${ayahNumberFromLink}/${lang}`)
+          );
 
-      const arabicFetchPromise = axios.get(`https://api.alquran.cloud/v1/surah/${surahNumberFromLink}/quran-simple`);
+          // NEW: Fetch Arabic text from quran.com API
+          const arabicTextPromise = axios.get(`${API_ARABIC_BASE_URL}/quran/verses/uthmani_hafs?chapter_number=${surahNumberFromLink}&verse_key=${surahNumberFromLink}:${ayahNumberFromLink}`);
+          
+          const surahInfoPromise = axios.get(`${API_TRANSLATION_BASE_URL}/surah/${surahNumberFromLink}/en.sahih`);
 
-      const tafsirPromises = [];
-      if (ayahNumberFromLink && currentTafsirs.length > 0) {
-        tafsirPromises.push(
-          axios.get(`https://quranapi.pages.dev/api/tafsir/${surahNumberFromLink}_${ayahNumberFromLink}.json`)
-        );
-      }
+          const [arabicResponse, surahInfoResponse, ...otherResponses] = await Promise.all([
+            arabicTextPromise,
+            surahInfoPromise,
+            ...translationPromises,
+            ...tafsirPromises
+          ]);
 
-      Promise.all([arabicFetchPromise, ...fetchPromises, ...tafsirPromises])
-        .then((responses) => {
-          const arabicSurahData = responses[0].data.data;
-          const translationResponses = responses.slice(1, responses.length - tafsirPromises.length);
-          const tafsirResponseData = tafsirPromises.length > 0 ? responses[responses.length - 1].data : null;
+          const arabicText = arabicResponse.data.verses[0]?.text_uthmani_hafs;
+          const surahInfo = surahInfoResponse.data.data;
+          
+          const translationResponses = otherResponses.slice(0, currentLanguages.length);
+          const tafsirResponses = otherResponses.slice(currentLanguages.length);
 
-          const ayahsWithTranslations = arabicSurahData.ayahs.map((ayah, idx) => {
-            const translations = translationResponses.map(res => ({
-              lang: res.config.url.split('/').pop(),
-              text: res.data.data.ayahs[idx].text
-            }));
+          const translations = translationResponses.map(res => ({
+            lang: res.config.url.split('/').pop(),
+            text: res.data.data.text
+          }));
 
-            let ayahsTafsirs = [];
-            if (tafsirResponseData && ayah.numberInSurah === ayahNumberFromLink) {
-              ayahsTafsirs = tafsirResponseData.tafsirs.filter(tafsir =>
-                currentTafsirs.includes(tafsir.author)
-              );
+          const allTafsirs = tafsirResponses.flatMap(res => res.data.tafsirs || []);
+          const ayahsTafsirs = allTafsirs.filter(tafsir =>
+            currentTafsirs.includes(tafsir.author)
+          );
+
+          const ayah = {
+            number: surahInfo.ayahs[ayahNumberFromLink - 1].number,
+            numberInSurah: ayahNumberFromLink,
+            text: arabicText,
+            translations,
+            tafsirs: ayahsTafsirs,
+            surah: {
+              number: surahNumberFromLink,
+              name: surahInfo.name,
+              englishName: surahInfo.englishName,
             }
+          };
 
-            return {
-              ...ayah,
-              translations,
-              tafsirs: ayahsTafsirs,
-              surah: {
-                number: surahNumberFromLink,
-                name: arabicSurahData.name,
-                englishName: arabicSurahData.englishName,
-              }
-            };
-          });
+          setSurahDetails({ ...surahInfo, ayahs: [ayah] });
+          setIsLoading(false);
 
-          const filteredAyahs = ayahNumberFromLink
-            ? ayahsWithTranslations.filter(ayah => ayah.numberInSurah === ayahNumberFromLink)
-            : ayahsWithTranslations;
+          setTimeout(() => {
+            const ayahElement = document.getElementById(`ayah-${ayahNumberFromLink}`);
+            if (ayahElement) {
+              ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
 
-          setSurahDetails({ ...arabicSurahData, ayahs: filteredAyahs });
-          console.log('Surah details for TafsirsPage (single ayah mode):', { ...arabicSurahData, ayahs: filteredAyahs });
-
-          if (ayahNumberFromLink) {
-            setTimeout(() => {
-              const ayahElement = document.getElementById(`ayah-${ayahNumberFromLink}`);
-              if (ayahElement) {
-                ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 100);
-          }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error('Error fetching data for TafsirsPage:', err);
           setError("Failed to load surah details or tafsirs. Please try again or go back.");
           setSurahDetails(null);
-        })
-        .finally(() => {
           setIsLoading(false);
-        });
+        }
+      };
+      fetchTafsirAndTranslations();
     } else {
       setError("No surah or selected ayahs provided. Please go back to the Surah list.");
       setIsLoading(false);
       setSurahDetails(null);
     }
-  }, [surahNumberFromLink, currentLanguages, ayahNumberFromLink, selectedAyahsData, surahInfoFromLink, currentTafsirs]);
+  }, [surahNumberFromLink, ayahNumberFromLink, selectedAyahsData, surahInfoFromLink, currentLanguages, currentTafsirs, toast]);
 
   useEffect(() => {
     stopAudio();
-  }, [currentReciter]);
+  }, [currentReciter, stopAudio]);
 
   useEffect(() => {
     return () => {
-      if (currentSoundRef.current) {
-        currentSoundRef.current.unload();
-        currentSoundRef.current = null;
-      }
-      if (nextSoundRef.current) {
-        nextSoundRef.current.unload();
-        nextSoundRef.current = null;
-      }
+      stopAudio();
     };
-  }, []);
+  }, [stopAudio]);
 
   const ayahsToDisplay = selectedAyahsData && selectedAyahsData.length > 0
     ? selectedAyahsData
@@ -549,8 +554,6 @@ const TafsirsPage = () => {
                 headingColor={headingColor}
                 arabicTextColor={arabicTextColor}
                 blueText={blueText}
-                purpleBg={purpleBg}
-                purpleBorder={purpleBorder}
                 purpleText={purpleText}
                 grayTextColor={grayTextColor}
                 currentlyPlayingAyahIndex={currentlyPlayingAyahIndex}
