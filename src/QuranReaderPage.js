@@ -291,7 +291,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   };
   
   // Theme-aware colors for various elements
-  const headingColor = useColorModeValue('brand.600', 'brand.200');
+  const headingColor = useColorModeValue('blue.600', 'blue.300');
   const surahInfoBg = useColorModeValue('blue.50', 'blue.900');
   const surahInfoTextColor = useColorModeValue('gray.600', 'gray.300');
   const bulkModeBoxBg = useColorModeValue('gray.50', 'gray.700');
@@ -304,18 +304,18 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const optionBg = useColorModeValue('white', 'dark.optionBg');
   const optionColor = useColorModeValue('gray.800', 'dark.optionColor');
   const grayTextColor = useColorModeValue('gray.600', 'gray.400');
-  const arabicTextColor = useColorModeValue('quran.darkGreen', 'quran.gold');
-  const settingsButtonBg = useColorModeValue('brand.500', 'gray.600');
+  const arabicTextColor = useColorModeValue('darkGreen', 'gold');
+  const settingsButtonBg = useColorModeValue('blue.600', 'blue.600');
   const settingsButtonColor = useColorModeValue('white', 'gray.100');
-  const settingsButtonHoverBg = useColorModeValue('brand.600', 'gray.700');
-  const mobileMenuButtonBg = useColorModeValue('brand.500', 'gray.600');
+  const settingsButtonHoverBg = useColorModeValue('gray.600', 'gray.700');
+  const mobileMenuButtonBg = useColorModeValue('blue.600', 'blue.500');
   const mobileMenuButtonColor = useColorModeValue('white', 'gray.100');
-  const mobileMenuButtonHoverBg = useColorModeValue('brand.600', 'gray.700');
+  const mobileMenuButtonHoverBg = useColorModeValue('gray.600', 'gray.700');
 
   
-    const scrollButtonBg = useColorModeValue('white', '#f09a1e');
+    const scrollButtonBg = useColorModeValue('gold', 'gold');
     const scrollButtonColor = useColorModeValue('white', 'white'); // Changed to white for dark mode
-    const scrollButtonHoverBg = useColorModeValue('brand.secondary', '#d6891a');
+    const scrollButtonHoverBg = useColorModeValue('brand.secondary', '#ffffffff');
     const scrollButtonShadow = useColorModeValue('lg', 'lg');
   // NEW: Subtle cached color for the surah list indicator
   const cachedSurahColor = useColorModeValue('gray.400', 'gray.500');
@@ -1579,7 +1579,7 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
       </Box>
       
       {/* NEW: Scroll to Top Button */}
-// NEW: Scroll to Top Button
+
 
   {showScrollToTop && (
                 <IconButton
