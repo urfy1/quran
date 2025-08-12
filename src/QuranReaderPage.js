@@ -19,6 +19,7 @@ import { FaPlay, FaPause, FaStop, FaLanguage, FaVolumeUp, FaTextHeight, FaHeart,
 import { MdSettings, MdBookmark, MdBookmarkBorder, MdDelete, MdMenu } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 import localforage from 'localforage'; // Import localforage for IndexedDB abstraction
+import { FaArrowUp } from 'react-icons/fa';
 
 // ... (other constants and components remain unchanged)
 
@@ -1573,22 +1574,33 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
       </Box>
       
       {/* NEW: Scroll to Top Button */}
-      {showScrollToTop && (
-          <IconButton
-              aria-label="Scroll to top"
-              icon={<FaArrowUp />}
-              onClick={() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              position="fixed"
-              bottom="20px"
-              right="20px"
-              size="lg"
-              colorScheme="brand"
-              zIndex="tooltip"
-              boxShadow="md"
-          />
-      )}
+// NEW: Scroll to Top Button
+
+
+// In QuranReaderPage.js
+
+{showScrollToTop && (
+    <IconButton
+        aria-label="Scroll to top"
+        icon={<FaArrowUp />}
+        onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        position="fixed"
+        bottom="20px"
+        right="20px"
+        size="lg"
+        bg={useColorModeValue('white', '#f09a1e')}
+        color={useColorModeValue('white', '#1A202C')}
+        _hover={{
+          bg: useColorModeValue('brand.secondary', '#d6891a')
+        }}
+        // Use a very high zIndex to ensure visibility
+        zIndex="99999"
+        // Use a more visible boxShadow for both modes
+        boxShadow={useColorModeValue('lg', 'lg')}
+    />
+)}
 
       {/* Settings Drawer */}
       <Drawer
