@@ -19,7 +19,7 @@ import { FaPlay, FaPause, FaStop, FaLanguage, FaVolumeUp, FaTextHeight, FaHeart,
 import { MdSettings, MdBookmark, MdBookmarkBorder, MdDelete, MdMenu } from 'react-icons/md';
 import ReactMarkdown from 'react-markdown';
 import localforage from 'localforage'; // Import localforage for IndexedDB abstraction
-import { FaArrowUp } from 'react-icons/fa';
+
 
 // ... (other constants and components remain unchanged)
 
