@@ -1576,9 +1576,6 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
       {/* NEW: Scroll to Top Button */}
 // NEW: Scroll to Top Button
 
-
-// In QuranReaderPage.js
-
 {showScrollToTop && (
     <IconButton
         aria-label="Scroll to top"
@@ -1590,15 +1587,15 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
         bottom="20px"
         right="20px"
         size="lg"
-        bg={useColorModeValue('white', '#f09a1e')}
-        color={useColorModeValue('white', '#1A202C')}
+        // Start of fix: use 'brand.primary' which is defined in your custom theme
+        bg={useColorModeValue('white', 'white')}
+        color={useColorModeValue('white', 'gray.800')}
         _hover={{
-          bg: useColorModeValue('brand.secondary', '#d6891a')
+          bg: useColorModeValue('brand.secondary', 'gray.100')
         }}
-        // Use a very high zIndex to ensure visibility
-        zIndex="99999"
-        // Use a more visible boxShadow for both modes
-        boxShadow={useColorModeValue('lg', 'lg')}
+        // End of fix
+        zIndex="tooltip"
+        boxShadow="md"
     />
 )}
 
