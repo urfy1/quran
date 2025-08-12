@@ -27,4 +27,18 @@ v10 shareable link now works. what an amazing feature revolutionary
 
 v11 sharing is now on the surah screen once you select the ayahs
 
+v12 got all recitors popular ones. also English and Urdu translation
+
+v13 added Bosnian and persian language
+
+v14 now shows Uthmanic script correctly
+
+v15 know has 5 different Arabic scripts and it works
+
+v16 resolved issue with mobile drawer
+
+v17 now has yellow on dark mode
+
+v18 solved the issue with retries. now works. 
+
 http://localhost:3000/?surah=2&start=285&end=286
