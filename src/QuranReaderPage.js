@@ -311,7 +311,12 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const mobileMenuButtonBg = useColorModeValue('brand.500', 'gray.600');
   const mobileMenuButtonColor = useColorModeValue('white', 'gray.100');
   const mobileMenuButtonHoverBg = useColorModeValue('brand.600', 'gray.700');
+
   
+    const scrollButtonBg = useColorModeValue('white', '#f09a1e');
+    const scrollButtonColor = useColorModeValue('white', 'white'); // Changed to white for dark mode
+    const scrollButtonHoverBg = useColorModeValue('brand.secondary', '#d6891a');
+    const scrollButtonShadow = useColorModeValue('lg', 'lg');
   // NEW: Subtle cached color for the surah list indicator
   const cachedSurahColor = useColorModeValue('gray.400', 'gray.500');
 
@@ -1576,28 +1581,24 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
       {/* NEW: Scroll to Top Button */}
 // NEW: Scroll to Top Button
 
-{showScrollToTop && (
-    <IconButton
-        aria-label="Scroll to top"
-        icon={<FaArrowUp />}
-        onClick={() => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        position="fixed"
-        bottom="20px"
-        right="20px"
-        size="lg"
-        // Start of fix: use 'brand.primary' which is defined in your custom theme
-        bg={useColorModeValue('white', 'white')}
-        color={useColorModeValue('white', 'gray.800')}
-        _hover={{
-          bg: useColorModeValue('brand.secondary', 'gray.100')
-        }}
-        // End of fix
-        zIndex="tooltip"
-        boxShadow="md"
-    />
-)}
+  {showScrollToTop && (
+                <IconButton
+                    aria-label="Scroll to top"
+                    icon={<FaArrowUp />}
+                    onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    position="fixed"
+                    bottom="20px"
+                    right="20px"
+                    size="lg"
+                    bg={scrollButtonBg}
+                    color={scrollButtonColor}
+                    _hover={{ bg: scrollButtonHoverBg }}
+                    zIndex="99999"
+                    boxShadow={scrollButtonShadow}
+                />
+        )}
 
       {/* Settings Drawer */}
       <Drawer
