@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ChakraProvider,
   Container,
@@ -8,12 +8,11 @@ import {
   extendTheme
 } from '@chakra-ui/react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
-// Corrected import paths to match actual file names with correct casing
-import QuranReaderPage from './QuranReaderPage'; // Corrected file name casing
-import TranslationsPage from './TranslationsPage'; // Corrected file name casing
-import TafsirsPage from './TafsirsPage';     // Corrected file name casing
+import QuranReaderPage from './QuranReaderPage';
+import TranslationsPage from './TranslationsPage';
+import TafsirsPage from './TafsirsPage';
 import Electrical from './electrical';
+import SplashScreen from './SplashScreen';
 
 // Extend the Chakra UI theme to include color mode configuration and custom font
 const customTheme = extendTheme({
@@ -22,8 +21,8 @@ const customTheme = extendTheme({
     useSystemColorMode: false,
   },
   fonts: {
-    heading: 'Inter, sans-serif', // Apply Inter to headings
-    body: 'Inter, sans-serif',    // Apply Inter to body text
+    heading: 'Inter, sans-serif',
+    body: 'Inter, sans-serif',
   },
   colors: {
     light: {
@@ -36,13 +35,13 @@ const customTheme = extendTheme({
       optionColor: 'gray.800',
     },
     dark: {
-      background: '#1a202c',       // Chakra's gray.800
-      text: '#e2e8f0',             // Chakra's gray.200
-      cardBg: '#2d3748',           // Chakra's gray.700
-      inputBg: '#2d3748',          // Use gray.700 for input background in dark mode
-      inputBorder: '#718096',      // Chakra's gray.500 for border
-      optionBg: '#4a5568',         // Use gray.600 for option background (lighter than inputBg for contrast)
-      optionColor: '#e2e8f0',      // Ensure text is light on dark options (gray.200)
+      background: '#1a202c',
+      text: '#e2e8f0',
+      cardBg: '#2d3748',
+      inputBg: '#2d3748',
+      inputBorder: '#718096',
+      optionBg: '#4a5568',
+      optionColor: '#e2e8f0',
     },
     brand: {
       50: '#f0f9ff',
@@ -104,18 +103,12 @@ const MainAppContent = () => {
   const bgColor = useColorModeValue('light.background', 'dark.background');
   const textColor = useColorModeValue('light.text', 'dark.text');
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', colorMode);
-  }, [colorMode]);
-
   return (
     <Box bg={bgColor} color={textColor} minH="100vh">
-      {/* Google Fonts import for Inter */}
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
       <Container maxW="container.lg" py={2} px={4}>
         <BrowserRouter>
           <Routes>
-            {/* Updated routes with descriptive names */}
             <Route path="/" element={<QuranReaderPage colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
             <Route path="/quran-reader" element={<QuranReaderPage colorMode={colorMode} toggleColorMode={toggleColorMode} />} />
             <Route path="/translations" element={<TranslationsPage />} />
@@ -129,9 +122,22 @@ const MainAppContent = () => {
 };
 
 const App = () => {
+  // NEW: State to control the visibility of the splash screen
+  const [showSplash, setShowSplash] = useState(true);
+
+  // NEW: A function to hide the splash screen
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
   return (
     <ChakraProvider theme={customTheme}>
-      <MainAppContent />
+      {/* NEW: Conditionally render the SplashScreen or the main app content */}
+      {showSplash ? (
+        <SplashScreen onFinish={handleSplashFinish} />
+      ) : (
+        <MainAppContent />
+      )}
     </ChakraProvider>
   );
 };

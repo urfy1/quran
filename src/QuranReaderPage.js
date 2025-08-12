@@ -37,8 +37,13 @@ const translationNames = {
   'de.aburida': "Abu Rida (German)",
   'hi.hindi': "Suhel Farooq Khan and Saifur Rahman Nadwi (Hindi)",
   'it.piccardo': "Hamza Roberto Piccardo (Italian)",
-  'so.abduh': "Mahmud Muhammad Abduh (Somalian)"
+  'so.abduh': "Mahmud Muhammad Abduh (Somalian)",
+  'ru.kuliev': "Elmir Kuliev (Russian)",
+  'es.cortes': "Julio Cortes (Spanish)",
+  'tr.diyanet': "Diyanet Isleri Baskanligi (Turkish)",
+  'id.indonesian': "Bahasa (Indonesia)"
 };
+
 
 const tafsirNames = {
   'Ibn Kathir': 'Ibn Kathir',
@@ -203,7 +208,7 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const [currentReciter, setCurrentReciter] = useState('ar.alafasy');
   const [arabicScript, setArabicScript] = useState('quran-uthmani');
     const [selectedFont, setSelectedFont] = useState('KFGQPC HAFS Uthmanic Script Regular');
-  const [arabicFontSize, setArabicFontSize] = useState(32);
+  const [arabicFontSize, setArabicFontSize] = useState(45);
   const [translationFontSize, setTranslationFontSize] = useState(16);
   const [favorites, setFavorites] = useState([]);
   const [memorizationSets, setMemorizationSets] = useState([]);
@@ -405,6 +410,12 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
         window.removeEventListener('scroll', handleScroll);
     };
 }, []);
+
+useEffect(() => {
+  if (surahNumber) {
+    handleSurahChange(String(surahNumber));
+  }
+}, [currentLanguages]);
 
   
   const toggleFavorite = useCallback(async () => {
@@ -1690,27 +1701,37 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
 </Select>
               </FormControl>
 
-              {/* Translation Language Selection */}
-              <FormControl>
-                <FormLabel color={modalBodyTextColor}>Select Translations</FormLabel>
-                <Grid templateColumns="repeat(auto-fit, minmax(150px, 1fr))" gap={3}>
-                  {Object.keys(translationNames).map(lang => (
-                    <GridItem key={lang}>
-                      <Checkbox
-                        isChecked={currentLanguages.includes(lang)}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          setCurrentLanguages(prev =>
-                            isChecked ? [...prev, lang] : prev.filter(l => l !== lang)
-                          );
-                        }}
-                      >
-                        <Text color={modalBodyTextColor}>{translationNames[lang]}</Text>
-                      </Checkbox>
-                    </GridItem>
-                  ))}
-                </Grid>
-              </FormControl>
+{/* Translation Language Selection */}
+<FormControl>
+  <FormLabel color={modalBodyTextColor}>Select Translations</FormLabel>
+  <Grid templateColumns="repeat(auto-fit, minmax(150px, 1fr))" gap={3}>
+    {Object.keys(translationNames).map(lang => (
+      <GridItem key={lang}>
+        <Checkbox
+          isChecked={currentLanguages.includes(lang)}
+          onChange={(e) => {
+            const isChecked = e.target.checked;
+            setCurrentLanguages(prev => {
+              if (isChecked && prev.length >= 5) {
+                toast({
+                  title: "Maximum of 5 translations allowed",
+                  status: "warning",
+                  duration: 3000,
+                  isClosable: true,
+                });
+                return prev; // Do not add new translation if limit reached
+              }
+              return isChecked ? [...prev, lang] : prev.filter(l => l !== lang);
+            });
+          }}
+        >
+          <Text color={modalBodyTextColor}>{translationNames[lang]}</Text>
+        </Checkbox>
+      </GridItem>
+    ))}
+  </Grid>
+</FormControl>
+
 
               {/* Tafsir Selection */}
               <FormControl mt={4}>
