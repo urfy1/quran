@@ -112,7 +112,7 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
       py={1}
       borderRadius="md"
     >
-      ayah{ayah.numberInSurah}
+      ayah {ayah.numberInSurah}
     </Badge>
           <Flex align="center" gap={2}>
             {isAudioCached && (
