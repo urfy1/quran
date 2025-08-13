@@ -112,7 +112,7 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
       py={1}
       borderRadius="md"
     >
-      ayah{ayah.number}
+      ayah{ayah.numberInSurah}
     </Badge>
           <Flex align="center" gap={2}>
             {isAudioCached && (
@@ -1262,7 +1262,7 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
           gap={4}
         >
           <Heading size="xl" color={headingColor}>
-            AdQuran
+            Quran Reader
           </Heading>
           
           {/* Mobile Theme Toggle and Menu */}
