@@ -5,9 +5,12 @@ import {
   Box,
   useColorMode,
   useColorModeValue,
-  extendTheme
+  extendTheme,
+  Heading,
+  Button,
+  VStack,
 } from '@chakra-ui/react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import QuranReaderPage from './QuranReaderPage';
 import TranslationsPage from './TranslationsPage';
 import TafsirsPage from './TafsirsPage';
@@ -44,59 +47,53 @@ const customTheme = extendTheme({
       optionColor: '#e2e8f0',
     },
     brand: {
-      50: '#f0f9ff',
-      100: '#e0f2fe',
-      500: '#3b82f6',
-      600: '#2563eb',
-    },
-    quran: {
-      green: '#2ca02c',
-      darkGreen: '#1e7e34',
-      gold: '#ffd700',
-    },
-  },
-  components: {
-    Card: {
-      baseStyle: {
-        container: {
-          borderRadius: 'xl',
-          boxShadow: 'md',
-          transition: 'all 0.2s',
-          _hover: {
-            boxShadow: 'lg',
-          },
-        },
-      },
-    },
-    Button: {
-      baseStyle: {
-        borderRadius: 'md',
-      },
-    },
-    Select: {
-      variants: {
-        filled: (props) => ({
-          field: {
-            bg: props.colorMode === 'light' ? props.theme.colors.light.inputBg : props.theme.colors.dark.inputBg,
-            borderColor: props.colorMode === 'light' ? props.theme.colors.light.inputBorder : props.theme.colors.dark.inputBorder,
-            color: props.colorMode === 'light' ? props.theme.colors.light.optionColor : props.theme.colors.dark.optionColor,
-            _hover: {
-              bg: props.colorMode === 'light' ? props.theme.colors.light.inputBg : props.theme.colors.dark.inputBg,
-            },
-            _focus: {
-              borderColor: 'brand.500',
-            },
-            _dark: {
-              bg: props.theme.colors.dark.inputBg,
-              borderColor: props.theme.colors.dark.inputBorder,
-              color: props.theme.colors.dark.optionColor,
-            },
-          },
-        }),
-      },
+      primary: '#1a73e8', // A strong blue for primary actions
+      secondary: '#0F4C81', // A darker shade for accents
     },
   },
 });
+
+// A simple placeholder component for AyahOptionsPage. 
+// You should create a separate file named AyahOptionsPage.js and move this content there.
+const AyahOptionsPage = () => {
+    const navigate = useNavigate();
+
+    // In a real application, you would get the ayah data from a state or URL parameter
+    const ayahText = "Example Ayah Text...";
+
+    const handleCopy = () => {
+        // You would use a library or the browser's clipboard API to copy the text
+        alert("Ayah copied to clipboard!"); 
+    };
+
+    const handleShare = () => {
+        // Implement share functionality
+        alert("Share functionality triggered!");
+    };
+
+    const handleTafsir = () => {
+        // Navigate back to the tafsir page
+        navigate('/tafsirs');
+    };
+    
+    // The "Back" button allows the user to return to the QuranReaderPage
+    const handleBack = () => {
+        navigate(-1);
+    };
+
+    return (
+        <Box p={4} maxW="md" mx="auto" mt={8} borderWidth="1px" borderRadius="lg" overflow="hidden" boxShadow="md">
+            <Heading mb={4} size="lg">Options for Ayah</Heading>
+            <VStack spacing={4}>
+                <Button colorScheme="blue" width="full" onClick={handleCopy}>Copy Ayah</Button>
+                <Button colorScheme="teal" width="full" onClick={handleShare}>Share Ayah</Button>
+                <Button colorScheme="green" width="full" onClick={handleTafsir}>View Tafsir</Button>
+                <Button colorScheme="gray" width="full" onClick={handleBack}>Go Back</Button>
+            </VStack>
+        </Box>
+    );
+};
+
 
 const MainAppContent = () => {
   const { colorMode, toggleColorMode } = useColorMode();
@@ -114,6 +111,8 @@ const MainAppContent = () => {
             <Route path="/translations" element={<TranslationsPage />} />
             <Route path="/tafsirs" element={<TafsirsPage />} />
             <Route path="/electrical" element={<Electrical />} />
+            {/* NEW ROUTE for the Ayah options page */}
+            <Route path="/ayah-options" element={<AyahOptionsPage />} />
           </Routes>
         </BrowserRouter>
       </Container>
@@ -122,17 +121,17 @@ const MainAppContent = () => {
 };
 
 const App = () => {
-  // NEW: State to control the visibility of the splash screen
+  // State to control the visibility of the splash screen
   const [showSplash, setShowSplash] = useState(true);
 
-  // NEW: A function to hide the splash screen
+  // A function to hide the splash screen
   const handleSplashFinish = () => {
     setShowSplash(false);
   };
 
   return (
     <ChakraProvider theme={customTheme}>
-      {/* NEW: Conditionally render the SplashScreen or the main app content */}
+      {/* Conditionally render the SplashScreen or the main app content */}
       {showSplash ? (
         <SplashScreen onFinish={handleSplashFinish} />
       ) : (

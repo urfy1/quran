@@ -81,6 +81,9 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
   const blueText = useColorModeValue('blue.700', 'blue.300');
   const dotColor = useColorModeValue('green.500', 'green.300'); // Theme-aware color for the dot
 
+  const badgeBg = useColorModeValue("darkgreen", "gold");
+  const badgeColor = useColorModeValue("white", "black");
+
 
   // Filter out any undefined Tafsirs, assuming ayah.tafsirs holds the array from quranapi.pages.dev
   const validTafsirs = ayah.tafsirs ? ayah.tafsirs.filter(tafsir => tafsir.author && tafsir.content) : [];
@@ -101,9 +104,16 @@ const AyahCard = React.memo(({ ayah, index, currentlyPlayingAyahIndex, isSelecte
     >
       <CardBody>
         <Flex align="center" justify="space-between" mb={2}>
-          <Badge colorScheme="purple" fontSize="md" px={2} py={1} borderRadius="md">
-            Ayah {ayah.numberInSurah}
-          </Badge>
+    <Badge
+      backgroundColor={badgeBg}
+      color={badgeColor}
+      fontSize="md"
+      px={2}
+      py={1}
+      borderRadius="md"
+    >
+      ayah{ayah.number}
+    </Badge>
           <Flex align="center" gap={2}>
             {isAudioCached && (
               <Tooltip label="Audio is Cached">
@@ -291,9 +301,9 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   };
   
   // Theme-aware colors for various elements
-  const headingColor = useColorModeValue('blue.600', 'blue.300');
+  const headingColor = useColorModeValue('darkGreen', 'gold');
   const surahInfoBg = useColorModeValue('blue.50', 'blue.900');
-  const surahInfoTextColor = useColorModeValue('gray.600', 'gray.300');
+  const surahInfoTextColor = useColorModeValue('darkGreen', 'gold');
   const bulkModeBoxBg = useColorModeValue('gray.50', 'gray.700');
   const modalBg = useColorModeValue('white', 'gray.700');
   const modalHeaderBorderColor = useColorModeValue('gray.200', 'gray.600');
@@ -305,15 +315,15 @@ const QuranReaderPage = ({ colorMode, toggleColorMode }) => {
   const optionColor = useColorModeValue('gray.800', 'dark.optionColor');
   const grayTextColor = useColorModeValue('gray.600', 'gray.400');
   const arabicTextColor = useColorModeValue('darkGreen', 'gold');
-  const settingsButtonBg = useColorModeValue('blue.600', 'blue.600');
-  const settingsButtonColor = useColorModeValue('white', 'gray.100');
+  const settingsButtonBg = useColorModeValue('darkGreen', 'gold');
+  const settingsButtonColor = useColorModeValue('white', 'black');
   const settingsButtonHoverBg = useColorModeValue('gray.600', 'gray.700');
-  const mobileMenuButtonBg = useColorModeValue('blue.600', 'blue.500');
-  const mobileMenuButtonColor = useColorModeValue('white', 'gray.100');
+  const mobileMenuButtonBg = useColorModeValue('darkGreen', 'gold');
+  const mobileMenuButtonColor = useColorModeValue('white', 'black');
   const mobileMenuButtonHoverBg = useColorModeValue('gray.600', 'gray.700');
 
   
-    const scrollButtonBg = useColorModeValue('gold', 'gold');
+    const scrollButtonBg = useColorModeValue('darkGreen', 'gold');
     const scrollButtonColor = useColorModeValue('white', 'white'); // Changed to white for dark mode
     const scrollButtonHoverBg = useColorModeValue('brand.secondary', '#ffffffff');
     const scrollButtonShadow = useColorModeValue('lg', 'lg');
@@ -627,7 +637,23 @@ useEffect(() => {
     }
   }, [selectedSurahData, surahNumber, currentReciter, currentlyPlayingAyahIndex, isPlaying, stopAudio, getAyahAudioUrl, preloadNextAyah, setCachedAyahAudio]);
 
+const [tempArabicFontSize, setTempArabicFontSize] = useState(arabicFontSize);
+const [tempTranslationFontSize, setTempTranslationFontSize] = useState(translationFontSize);
 
+// Add this debounced function. It will only call setArabicFontSize after the user has stopped moving the slider for 300ms.
+const debouncedSetArabicFontSize = useMemo(
+  () => debounce((val) => {
+    setArabicFontSize(val); // This is the crucial line that updates the main application state
+  }, 300),
+  [setArabicFontSize]
+);
+
+const debouncedSetTranslationFontSize = useMemo(
+  () => debounce((val) => {
+    setTranslationFontSize(val); // This is the crucial line that updates the main application state
+  }, 300),
+  [setTranslationFontSize]
+);
   // NEW: Function to play the next surah
   const playNextSurah = useCallback(() => {
     console.log('[LOG] playNextSurah called.');
@@ -1236,7 +1262,7 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
           gap={4}
         >
           <Heading size="xl" color={headingColor}>
-            Quran Reader
+            AdQuran
           </Heading>
           
           {/* Mobile Theme Toggle and Menu */}
@@ -1780,40 +1806,53 @@ const handleAudioEnd = useCallback((currentIndex, customPlaylistIndices = null) 
               </FormControl>
 
               {/* Arabic Font Size Slider */}
-              <FormControl>
-                <FormLabel color={modalBodyTextColor}>Arabic Font Size: {arabicFontSize}px</FormLabel>
-                <Slider
-                  aria-label="slider-arabic-font-size"
-                  defaultValue={arabicFontSize}
-                  min={20}
-                  max={60}
-                  step={1}
-                  onChange={(val) => setArabicFontSize(val)}
-                >
-                  <SliderTrack bg={inputBorder}>
-                    <SliderFilledTrack bg="brand.500" />
-                  </SliderTrack>
-                  <SliderThumb borderColor="brand.500" />
-                </Slider>
-              </FormControl>
+  <FormControl>
+    <FormLabel color={modalBodyTextColor}>Arabic Font Size: {tempArabicFontSize}px</FormLabel>
+    <Slider
+      aria-label="slider-arabic-font-size"
+      value={tempArabicFontSize}
+      min={20}
+      max={60}
+      step={1}
+      onChange={(val) => setTempArabicFontSize(val)}
+      onChangeEnd={debouncedSetArabicFontSize}
+    >
+      <SliderTrack bg={inputBorder}>
+        <SliderFilledTrack bg="brand.500" />
+      </SliderTrack>
+      <SliderThumb borderColor="brand.500" />
+    </Slider>
+  </FormControl>
 
               {/* Translation Font Size Slider */}
-              <FormControl>
-                <FormLabel color={modalBodyTextColor}>Translation Font Size: {translationFontSize}px</FormLabel>
-                <Slider
-                  aria-label="slider-translation-font-size"
-                  defaultValue={translationFontSize}
-                  min={12}
-                  max={30}
-                  step={1}
-                  onChange={(val) => setTranslationFontSize(val)}
-                >
-                  <SliderTrack bg={inputBorder}>
-                    <SliderFilledTrack bg="brand.500" />
-                  </SliderTrack>
-                  <SliderThumb borderColor="brand.500" />
-                </Slider>
-              </FormControl>
+  <FormControl>
+    <FormLabel color={modalBodyTextColor}>Translation Font Size: {tempTranslationFontSize}px</FormLabel>
+    <Slider
+      aria-label="slider-translation-font-size"
+      value={tempTranslationFontSize}
+      min={12}
+      max={30}
+      step={1}
+      onChange={(val) => setTempTranslationFontSize(val)}
+      onChangeEnd={debouncedSetTranslationFontSize}
+    >
+      <SliderTrack bg={inputBorder}>
+        <SliderFilledTrack bg="brand.500" />
+      </SliderTrack>
+      <SliderThumb borderColor="brand.500" />
+    </Slider>
+  </FormControl>
+
+  {/* Preview Section */}
+  <Box mt={4} p={4} borderWidth="1px" borderRadius="md">
+    <Text fontSize="md" fontWeight="bold">Font Size Preview:</Text>
+    <Text fontSize={`${tempArabicFontSize}px`} fontFamily="arabic-font" mt={2} textAlign="right" dir="rtl">
+      بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ
+    </Text>
+    <Text fontSize={`${tempTranslationFontSize}px`} mt={2} textAlign="left">
+      In the name of Allah, the Most Gracious, the Most Merciful.
+    </Text>
+  </Box>
 
               {/* Removed Highlight Color Picker */}
             </Stack>

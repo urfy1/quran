@@ -122,7 +122,7 @@ const SplashScreen = ({ onFinish }) => {
             mb={4}
             color={color}
           >
-            My Quran Reader
+            AdQuran
           </Heading>
           <Text fontSize="xl" color={textColor}>
             Loading...
